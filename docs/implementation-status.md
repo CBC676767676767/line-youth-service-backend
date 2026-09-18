@@ -30,7 +30,7 @@
 - 已執行 [真實 HTTP 煙霧流程](../scripts/smoke.py)：原生 API 連接 PostgreSQL，完成申請、補件、掃描前拒絕接受、開發掃描後接受、核定、CLOSED 與 CSV 下載。成功流程會停用合成測試帳號及其工作階段。
 - Docker image 建置成功；容器模式的資料庫遷移必須由操作者在啟動服務前執行。
 - 執行期相依版本記錄於 [requirements.lock](../requirements.lock)，開發工具記錄於 [requirements-dev.lock](../requirements-dev.lock)；OpenAPI 可由開發環境 `/docs` 查看。
-- 已新增 [GitHub Actions CI](../.github/workflows/ci.yml)，但尚未在目標 GitHub 儲存庫執行，不能將本機通過結果視為遠端 CI 已通過。
+- 已新增 [GitHub Actions CI](../.github/workflows/ci.yml)，遠端結果以 [Actions 紀錄](https://github.com/CBC676767676767/line-youth-service-backend/actions) 為準；不能將本機通過結果視為遠端 CI 已通過。
 
 煙霧腳本的同一 Idempotency-Key PostgreSQL 並行送件檢查亦已實跑通過，兩個請求取得同一回執；背景 worker 同時運作時的整體流程也已重跑通過。腳本提供 `atexit` 帳號停用處理，但無法捕捉 `kill -9` 等強制終止，該情況仍需人工核對合成帳號。
 
@@ -49,7 +49,7 @@
 | 保存與清理 | 核定保存年限、備份保留、隔離孤立檔、郵件 spool、到期匯出及稽核保存政策，建立可驗證清理作業 |
 | 文件深度處理 | 惡意 PDF／文件解析的沙箱與資源限制、可安全預覽衍生檔；Range 如有需求另行實作並逐次驗權 |
 | 正式維運 | 指標／追蹤／告警、服務監控、高可用、負載測試、備份還原演練、事件處置與安全審查；RPO／RTO 與可用性尚未驗證 |
-| GitHub 發布 | 目標 `CBC676767676767/line-youth-service-backend` 尚待組織／儲存庫寫入授權；未宣稱已推送 |
+| GitHub 發布 | 已推送至私有儲存庫 `CBC676767676767/line-youth-service-backend` 的 `main` 分支，遠端可見性及提交 SHA 已核對；未提交執行環境憑證 |
 
 正式設定會拒絕開發掃描器、spool 郵件、非安全 Cookie 等組合，但啟動設定檢查不能取代以上正式整合及驗收。開始使用真實申請資料前，仍需完成對應的業務、保存及維運配置。
 

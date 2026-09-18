@@ -110,7 +110,7 @@ docker compose --profile app up -d api worker
 
 此腳本包含 PostgreSQL 下相同 key 的並行送件檢查，只允許 development、私有郵件 spool 與 PostgreSQL，且拒絕已配置對外 LINE 傳送的環境。它會建立可辨識的合成帳號及案件；成功結束時停用測試帳號並撤銷工作階段，保留案件作為驗證證據。一般斷言失敗或正常程序退出亦由 `atexit` 清理帳號；`kill -9`、程序崩潰或清理時資料庫不可用，仍須人工確認殘留帳號。測試涵蓋範圍及外部整合限制見 [實作狀態](docs/implementation-status.md)。
 
-[GitHub Actions 工作流程](.github/workflows/ci.yml) 已加入儲存庫；目前僅有本機驗證結果，尚無目標 GitHub 儲存庫的 CI 執行結果。
+[GitHub Actions 工作流程](.github/workflows/ci.yml) 已加入儲存庫；遠端執行結果請查看 [Actions](https://github.com/CBC676767676767/line-youth-service-backend/actions)。本機驗證結果不代表遠端 CI 已通過。
 
 ## 設定、目錄與交付狀態
 
@@ -126,6 +126,6 @@ docker compose --profile app up -d api worker
 | [migrations](migrations) | Alembic 資料庫遷移 |
 | [tests](tests) | 自動化測試 |
 
-GitHub 預定目標為 `CBC676767676767/line-youth-service-backend`。目前尚未推送至該目標，需先完成對應組織／儲存庫的寫入授權。
+程式已發布至私有儲存庫 [CBC676767676767/line-youth-service-backend](https://github.com/CBC676767676767/line-youth-service-backend)，主分支為 `main`。需使用具有儲存庫權限的 GitHub 帳號存取；執行環境憑證不隨程式發布。
 
 LINE 行為依據：[訊息 retry key](https://developers.line.biz/en/docs/messaging-api/retrying-api-request/)、[Webhook 原文簽章驗證](https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/)。
