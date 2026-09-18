@@ -1,0 +1,13 @@
+.venv
+.env
+.env.*
+var
+.git
+__pycache__
+.pytest_cache
+*.egg-info
+*.log
+*.eml
+.ruff_cache
+.coverage
+htmlcov

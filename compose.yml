@@ -1,0 +1,58 @@
+name: line-youth-backend
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: youth
+      POSTGRES_DB: youth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run python -m app.cli init first}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - youth_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U youth -d youth"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  api:
+    build: .
+    profiles: ["app"]
+    env_file: .env
+    environment:
+      YOUTH_DATABASE_URL: postgresql+psycopg://youth:${POSTGRES_PASSWORD}@db:5432/youth
+      YOUTH_STORAGE_DIR: /data/files
+      YOUTH_MAIL_SPOOL_DIR: /data/mail
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - youth_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    build: .
+    profiles: ["app"]
+    env_file: .env
+    environment:
+      YOUTH_DATABASE_URL: postgresql+psycopg://youth:${POSTGRES_PASSWORD}@db:5432/youth
+      YOUTH_STORAGE_DIR: /data/files
+      YOUTH_MAIL_SPOOL_DIR: /data/mail
+    command: ["python", "-m", "app.cli", "worker"]
+    volumes:
+      - youth_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+  clamav:
+    image: clamav/clamav:stable
+    profiles: ["antivirus"]
+    ports:
+      - "127.0.0.1:3310:3310"
+    volumes:
+      - clamav_signatures:/var/lib/clamav
+volumes:
+  youth_db:
+  youth_data:
+  clamav_signatures:

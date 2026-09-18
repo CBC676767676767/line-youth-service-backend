@@ -1,0 +1,46 @@
+name: Backend checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.lock
+      - name: Install locked dependencies
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps -e .
+      - name: Static checks and regression tests
+        run: |
+          ruff check app tests scripts migrations
+          pytest -o addopts='' --cov=app --cov-report=term-missing -q
+      - name: PostgreSQL migration and real HTTP workflow
+        run: |
+          python -m app.cli init
+          docker compose up -d --wait db
+          alembic upgrade head
+          alembic check
+          python -m app.cli seed
+          uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 &
+          api_pid=$!
+          trap 'kill "$api_pid"' EXIT
+          curl --fail --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/health/ready
+          python scripts/smoke.py
+      - name: Stop development database
+        if: always()
+        run: docker compose down
