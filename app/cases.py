@@ -750,6 +750,9 @@ def accept_task(task_id: str, body: TaskAccept, request: Request, db: DB, p: Use
     _files(db, case, submission.file_version_ids, task_id=task.id, clean=True)
     task.status = "ACCEPTED"
     task.accepted_submission_id = submission.id
+    # Accepted files become part of the record the decision rests on, so any
+    # conclusion reached before this point has to be looked at again.
+    case.evidence_revision_no += 1
     _cancel_task_reminders(db, case.id, task.id)
     _audit(db, p, request, "TASK_ACCEPTED", case, task.id,
            {"submission_id": submission.id, "review_note": body.review_note})
@@ -962,6 +965,7 @@ def update_review(case_id: str, item_id: str, body: ReviewUpdate, request: Reque
     item.evidence_refs = [ref.model_dump(mode="json") for ref in body.evidence_refs]
     item.reviewed_by = p.account.id
     item.reviewed_at = utcnow()
+    item.reviewed_evidence_revision = case.evidence_revision_no
     _audit(db, p, request, "REVIEW_ITEM_UPDATED", case, item.id, {"result": body.result})
     _event(db, case, "REVIEW_UPDATED", notify=False)
     db.commit()
@@ -983,6 +987,11 @@ def _ready_for_decision(db: Session, case: Case, body: DecisionCreate, *, correc
         raise ApiError(409, "REVIEW_INCOMPLETE", "仍有不符條件，不能核准。")
     if not correction and body.outcome == "REJECTED" and not any(item.result == "FAIL" for item in required.values()):
         raise ApiError(409, "REVIEW_INCOMPLETE", "駁回須有不符條件的檢核依據。")
+    stale = sorted(code for code, item in required.items()
+                   if (item.reviewed_evidence_revision or 0) < case.evidence_revision_no)
+    if not correction and stale:
+        raise ApiError(409, "REVIEW_STALE",
+                       "已接受新的證據，下列檢核須依最新資料重審：" + "、".join(stale))
     _rule(db, case, body.rule_version_id)
     snapshots = _evidence(db, case, body.evidence_refs)
     replaced = {ref.replaces_file_version_id for ref in body.evidence_refs if ref.replaces_file_version_id}
