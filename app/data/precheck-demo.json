@@ -1,0 +1,57 @@
+{
+  "input_version": "1",
+  "catalog_version": "demo-catalog-2026.1",
+  "official_application_url": null,
+  "rules": {
+    "version": "demo-2026.1",
+    "status": "demo",
+    "valid_from": "2026-01-01",
+    "valid_until": "2026-12-31",
+    "source": {"title": "MVP 合成演示規則，並非政府公告", "url": null, "kind": "synthetic"},
+    "confirmed_by": null,
+    "confirmed_at": null,
+    "params": {
+      "purchase_date_from": "2026-01-01",
+      "purchase_date_until": "2026-12-31",
+      "birth_date_from": "1991-01-01",
+      "birth_date_until": "2008-12-31",
+      "residency": "hsinchu",
+      "restricted_channels": ["agent", "marketplace"],
+      "restrict_standalone_credits": true,
+      "subscription_min_months": 1,
+      "subscription_max_months": 12,
+      "subscription_month_semantics": "calendar_clamped",
+      "application_types": [
+        {"id": "standard", "name": "一般申請", "documents": []},
+        {"id": "student", "name": "學生申請", "documents": [{"doc_id": "student_status", "title": "在學資料", "reason": "選擇學生申請，依演示規則準備在學資料。"}]}
+      ],
+      "base_documents": [{"doc_id": "residency_evidence", "title": "戶籍資料", "reason": "填答僅為使用者自述；戶籍內容尚未核對。"}],
+      "purchased_documents": [
+        {"doc_id": "purchase_receipt", "title": "購買憑證", "reason": "已購買情境，需準備載明方案與交易日期的憑證。"},
+        {"doc_id": "payment_evidence", "title": "付款資料", "reason": "備妥付款資料，以供後續人工核對付款一致性。"}
+      ],
+      "paid_by_other_documents": [{"doc_id": "payer_relationship", "title": "代付關係說明", "reason": "使用者自述由他人代付，需補充代付關係與說明；不因此拒收。"}]
+    }
+  },
+  "tools": [
+    {
+      "id": "demo-studio", "name": "合成 AI 工作室", "aliases": ["Demo Studio", "示範工作室"],
+      "status": "demo", "updated_at": "2026-09-01", "valid_from": "2026-01-01", "valid_until": "2026-12-31",
+      "source": {"title": "合成工具與方案目錄，並非真實品牌資料", "url": null, "kind": "synthetic"},
+      "domains": [{"hostname": "studio.example", "include_subdomains": true}], "channels": ["official"],
+      "plans": [
+        {"id": "monthly-credit", "name": "創作月訂閱（內含額度）", "aliases": ["Monthly Credit Plan"], "billing_types": ["monthly"], "classification": "subscription_included_credits"},
+        {"id": "annual", "name": "創作年訂閱", "aliases": [], "billing_types": ["annual"], "classification": "subscription"},
+        {"id": "topup", "name": "額外購買額度", "aliases": ["Token Topup"], "billing_types": ["credits"], "classification": "standalone_credits"}
+      ]
+    },
+    {
+      "id": "demo-restricted", "name": "合成限制工具", "aliases": ["Restricted Demo"],
+      "status": "demo", "updated_at": "2026-09-01", "valid_from": "2026-01-01", "valid_until": "2026-12-31",
+      "restricted": true, "restriction_reason": "合成演示規則限制此工具；並非真實政策分類。",
+      "source": {"title": "合成工具限制範例，並非政府公告", "url": null, "kind": "synthetic"},
+      "domains": [{"hostname": "restricted.example", "include_subdomains": false}], "channels": ["official"],
+      "plans": [{"id": "basic", "name": "基本月訂閱", "aliases": [], "billing_types": ["monthly"], "classification": "subscription"}]
+    }
+  ]
+}

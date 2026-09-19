@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -26,6 +26,7 @@ import {
   type Scheme,
   type TaskData,
 } from "../shared/types";
+import PrecheckSummary from "../components/PrecheckSummary";
 
 type Receipt = {
   receipt_id: string;
@@ -60,10 +61,12 @@ export default function CaseTracking({
   selectedId,
   supplementOnly,
   onEdit,
+  onUnsavedChange,
 }: {
   selectedId?: string;
   supplementOnly: boolean;
   onEdit: (id: string) => void;
+  onUnsavedChange: (value: boolean) => void;
 }) {
   const [cases, setCases] = useState<CaseData[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -76,6 +79,26 @@ export default function CaseTracking({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
+  const detailRequest = useRef(0);
+  const unfinishedTasks = useRef(new Set<string>());
+  const reportTaskWork = useCallback((id: string, unfinished: boolean) => {
+    if (unfinished) unfinishedTasks.current.add(id);
+    else unfinishedTasks.current.delete(id);
+    onUnsavedChange(unfinishedTasks.current.size > 0);
+  }, [onUnsavedChange]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (unfinishedTasks.current.size) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      onUnsavedChange(false);
+    };
+  }, [onUnsavedChange]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -83,6 +106,7 @@ export default function CaseTracking({
     };
   }, []);
   async function open(id: string) {
+    const request = ++detailRequest.current;
     setError("");
     setBusy(true);
     try {
@@ -94,19 +118,19 @@ export default function CaseTracking({
         api<Page<Receipt>>(`/cases/${detail.id}/receipts?limit=100`),
         api<Scheme>(`/schemes/${detail.scheme_id}`),
       ]);
-      if (mounted.current) {
+      if (mounted.current && request === detailRequest.current) {
         setRecord(detail);
         setTimeline(history.items);
         setReceipts(receiptPage.items);
         setScheme(program);
       }
     } catch (e) {
-      if (mounted.current) {
+      if (mounted.current && request === detailRequest.current) {
         setRecord(null);
         setError(errorMessage(e));
       }
     } finally {
-      if (mounted.current) setBusy(false);
+      if (mounted.current && request === detailRequest.current) setBusy(false);
     }
   }
   async function loadCases(more = false) {
@@ -159,6 +183,7 @@ export default function CaseTracking({
               className="text-btn"
               disabled={busy}
               onClick={() => {
+                detailRequest.current += 1;
                 setRecord(null);
                 void loadCases();
               }}
@@ -184,12 +209,19 @@ export default function CaseTracking({
               </p>
               <small className="muted">案件編號：{record.case_no}</small>
             </div>
-            {record.allowed_actions.includes("save_draft") && (
+            {record.allowed_actions.includes("save_draft") && record.scheme_id === "hsinchu-ai-grant-2026" && (
               <button className="btn primary" onClick={() => onEdit(record.id)}>
                 繼續填寫 <ArrowRight size={16} />
               </button>
             )}
           </section>
+          {record.status === "DRAFT" && record.scheme_id !== "hsinchu-ai-grant-2026" && (
+            <p className="notice">此草稿屬於其他方案，無法使用青年 AI 工具補助表單續填。原資料仍保留；可於下方查看預檢摘要，或<a href="/precheck">開啟補助預檢</a>。</p>
+          )}
+          <PrecheckSummary
+            key={`${record.id}-${record.version}`}
+            caseId={record.id}
+          />
           {record.decision && (
             <section className="card">
               <p className="eyebrow">核定結果</p>
@@ -215,6 +247,7 @@ export default function CaseTracking({
                   files={record.files.filter((f) => f.task_id === task.id)}
                   documentTypes={scheme?.document_types || []}
                   onDone={() => open(record.id)}
+                  onUnsavedChange={reportTaskWork}
                 />
               ))
             ) : (
@@ -359,11 +392,13 @@ function TaskCard({
   files,
   documentTypes,
   onDone,
+  onUnsavedChange,
 }: {
   task: TaskData;
   files: UploadedFile[];
   documentTypes: string[];
   onDone: () => void;
+  onUnsavedChange: (id: string, value: boolean) => void;
 }) {
   const [kind, setKind] = useState(documentTypes[0] || "OTHER");
   const [selected, setSelected] = useState<string[]>([]);
@@ -372,7 +407,23 @@ function TaskCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const unfinished = busy || pending || !!statement.trim() || selected.length > 0;
+  useEffect(() => {
+    onUnsavedChange(task.id, unfinished);
+    return () => onUnsavedChange(task.id, false);
+  }, [task.id, unfinished, onUnsavedChange]);
   const lock = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const serverFiles = JSON.stringify(files);
+  useEffect(() => {
+    setUploaded(files);
+    const available = new Set(files.map((file) => file.file_version_id));
+    setSelected((old) => old.filter((id) => available.has(id)));
+  }, [serverFiles]);
   const operation = useRef<{
     key: string;
     ids: string[];
@@ -390,15 +441,16 @@ function TaskCard({
       if (
         e instanceof ApiError &&
         e.status < 500 &&
+        e.status !== 401 &&
         e.code !== "OPERATION_RUNNING"
       ) {
         operation.current = null;
         setPending(false);
       }
-      setError(errorMessage(e));
+      if (mounted.current) setError(errorMessage(e));
     } finally {
       lock.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -467,8 +519,10 @@ function TaskCard({
                           file,
                           task.id,
                         );
-                        setUploaded((old) => [...old, result]);
-                        setSelected((old) => [...old, result.file_version_id]);
+                        if (mounted.current) {
+                          setUploaded((old) => [...old, result]);
+                          setSelected((old) => [...old, result.file_version_id]);
+                        }
                       });
                   }}
                 />
@@ -537,7 +591,7 @@ function TaskCard({
                 });
                 operation.current = null;
                 setPending(false);
-                onDone();
+                if (mounted.current) onDone();
               })
             }
           >

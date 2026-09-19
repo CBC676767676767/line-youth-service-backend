@@ -13,7 +13,8 @@ dependencies = [
   "psycopg[binary]>=3.2,<4", "pydantic-settings>=2.7,<3",
   "httpx>=0.28,<1", "python-multipart>=0.0.20,<1",
   "argon2-cffi>=23.1", "pyotp>=2.9,<3", "cryptography>=44",
-  "pillow>=11", "pypdf>=5", "email-validator>=2.2,<3", "jsonschema>=4.23,<5"
+  "pillow>=11", "pypdf>=5", "email-validator>=2.2,<3", "jsonschema>=4.23,<5",
+  "tzdata>=2025.2"
 ]
 
 [project.optional-dependencies]
@@ -21,6 +22,9 @@ dev = ["pytest>=8,<10", "ruff>=0.9", "pip-tools>=7.4", "pytest-cov>=6"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["web/*.html", "web/*.js", "web/*.css", "web/*.svg", "data/*.json", "data/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

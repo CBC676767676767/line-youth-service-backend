@@ -175,19 +175,32 @@ export function seedDocs(f: Form, bad = false): Doc[] {
     synthetic: true,
   }));
 }
-export function estimate(f: Form) {
-  const cents = Math.round((Number(f.amount) || 0) * 100);
-  return (
-    Math.min(
-      Math.floor((cents * (f.special ? 90 : 50)) / 100),
-      (f.special ? 6000 : 3000) * 100,
-    ) / 100
-  );
+function moneyCents(value: string): bigint | null {
+  if (!/^(?:0|[1-9]\d{0,8})(?:\.\d{1,2})?$/.test(value)) return null;
+  const [whole, fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
-export function money(n: number | string) {
-  return new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 2 }).format(
-    Number(n) || 0,
-  );
+function estimateUnits(f: Form): bigint | null {
+  const cents = moneyCents(f.amount);
+  if (cents === null) return null;
+  // Four decimal places retain the exact percentage, including fractions of a
+  // cent. An agency rounding rule has not been supplied, so none is invented.
+  const calculated = cents * (f.special ? 90n : 50n);
+  const cap = (f.special ? 6000n : 3000n) * 10_000n;
+  return calculated < cap ? calculated : cap;
+}
+export function estimate(f: Form): string | null {
+  const units = estimateUnits(f);
+  if (units === null) return null;
+  const fraction = (units % 10_000n).toString().padStart(4, "0").replace(/0+$/, "");
+  return (units / 10_000n).toString() + (fraction ? `.${fraction}` : "");
+}
+export function money(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return "待確認";
+  const text = String(value);
+  if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text)) return "待確認";
+  const [whole, fraction] = text.split(".");
+  return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (fraction ? `.${fraction}` : "");
 }
 export function checks(f: Form, docs: Doc[]): Finding[] {
   const found: Finding[] = [];
@@ -300,9 +313,14 @@ export function checks(f: Form, docs: Doc[]): Finding[] {
         : "申報為官方網站直接購買訂閱，須核對收據。",
     "官方「不予補助」第2、3款",
   );
-  const identity =
-    f.name.trim() === f.receiptName.trim() ||
-    f.email.trim().toLowerCase() === f.receiptEmail.trim().toLowerCase();
+  const name = f.name.trim();
+  const receiptName = f.receiptName.trim();
+  const email = f.email.trim().toLowerCase();
+  const receiptEmail = f.receiptEmail.trim().toLowerCase();
+  const identity = Boolean(
+    (name && receiptName && name === receiptName) ||
+    (email && receiptEmail && email === receiptEmail),
+  );
   add(
     "identity",
     f.payer === "relative" ? "warning" : identity ? "pass" : "warning",
@@ -318,28 +336,36 @@ export function checks(f: Form, docs: Doc[]): Finding[] {
         : `申請人：${f.name}／${f.email}；憑證：${f.receiptName}／${f.receiptEmail}。先確認辨識結果；如有其他可辨識購買人資訊或代付例外，由承辦核對，不能只憑姓名不同駁回。`,
     "官方「審核機制」購買人資訊",
   );
-  const amountValid = Number(f.amount) > 0 && Number(f.requested) > 0;
+  const amount = moneyCents(f.amount);
+  const requested = moneyCents(f.requested);
+  const receiptAmount = moneyCents(f.receiptAmount);
+  const expected = estimateUnits(f);
+  const needsRoundingRule = expected !== null && expected % 100n !== 0n;
+  const amountValid = amount !== null && amount > 0n && requested !== null && requested > 0n;
   const amountMatch =
-    amountValid &&
-    Math.abs(Number(f.requested) - estimate(f)) < 0.011 &&
-    Math.abs(Number(f.receiptAmount) - Number(f.amount)) < 0.011;
+    amountValid && !needsRoundingRule && requested * 100n === expected && receiptAmount === amount;
   add(
     "amount",
     amountMatch
       ? "pass"
       : !amountValid ||
-          Number(f.requested) > estimate(f) ||
-          Math.abs(Number(f.receiptAmount) - Number(f.amount)) > 0.011
+          (!needsRoundingRule && expected !== null && requested !== null && requested * 100n > expected) ||
+          (receiptAmount !== null && amount !== null && receiptAmount !== amount)
         ? "error"
         : "warning",
     amountMatch ? "金額計算一致" : "申請金額需要確認",
-    `臺幣付款 ${money(f.amount)} 元 × ${f.special ? "90" : "50"}%，依上限估算 ${money(estimate(f))} 元；目前填寫 ${money(f.requested)} 元。試算不含未確認的尾數處理規則。`,
+    expected === null
+      ? "臺幣費用尚未提供有效金額，無法試算；未知費用不視為 0。請依付款與憑證填寫。"
+      : `臺幣付款 ${money(f.amount)} 元 × ${f.special ? "90" : "50"}%，依上限條件式試算 ${money(estimate(f))} 元；目前填寫 ${money(f.requested)} 元。${needsRoundingRule ? "精確結果含不足一分的尾數，須由承辦確認處理規則；未自行捨去或四捨五入。" : "試算不代表核定金額，仍須核對費用與資格證明。"}`,
     "官方「補助金額、臺幣帳單」",
   );
+  const bankName = f.bankName.trim();
+  const bankKnown = Boolean(bankName && name);
+  const bankMatches = bankKnown && bankName === name;
   add(
     "bank",
-    f.bankName.trim() === f.name.trim() ? "pass" : "error",
-    f.bankName.trim() === f.name.trim()
+    !bankKnown ? "warning" : bankMatches ? "pass" : "error",
+    !bankKnown ? "申請人姓名或存摺戶名尚待填寫" : bankMatches
       ? "存摺戶名一致"
       : "存摺戶名與申請人不同",
     "公告要求申請人本人帳戶。帳號正確性與實際帳戶歸屬仍需確認。",

@@ -1,0 +1,137 @@
+name: youth-service-prod
+
+x-app: &app
+  image: youth-service:${YOUTH_RELEASE:-local}
+  build:
+    context: ../..
+    args:
+      VITE_LIFF_ID: ${VITE_LIFF_ID:-}
+      VITE_LINE_BOT_BASIC_ID: ${VITE_LINE_BOT_BASIC_ID:-}
+      VITE_LINE_BOT_DISPLAY_NAME: ${VITE_LINE_BOT_DISPLAY_NAME:-}
+  env_file:
+    - ${YOUTH_ENV_FILE:-/etc/youth-service/runtime.env}
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTHONUNBUFFERED: "1"
+    YOUTH_STORAGE_DIR: /data/files
+    YOUTH_MAIL_SPOOL_DIR: /data/mail
+    YOUTH_CLAMAV_HOST: clamav
+  volumes:
+    - app_data:/data
+    - ./worker.py:/srv/deploy/worker.py:ro
+    - ./check_settings.py:/srv/deploy/check_settings.py:ro
+  networks: [private]
+  restart: unless-stopped
+  init: true
+  read_only: true
+  # Quoted: an unquoted flow sequence splits on the comma into an illegal second mount.
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  logging: &logging
+    driver: local
+    options: {max-size: "10m", max-file: "3"}
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_USER: youth
+      POSTGRES_DB: youth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Private runtime.env must be initialized}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    networks: [private]
+    restart: unless-stopped
+    shm_size: 128m
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U youth -d youth"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  clamav:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:stable}
+    volumes: [clamav_data:/var/lib/clamav]
+    networks: [private]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, clamdscan, "--ping=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    logging: *logging
+
+  api:
+    <<: *app
+    command: [uvicorn, "app.main:create_app", --factory, --host, "0.0.0.0", --port, "8000", --workers, "1", --no-access-log, --proxy-headers, --forwarded-allow-ips, "172.30.70.2"]
+    depends_on:
+      db: {condition: service_healthy}
+      clamav: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5).close()"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 30s
+
+  maintenance:
+    <<: *app
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      YOUTH_STORAGE_DIR: /data/files
+      YOUTH_MAIL_SPOOL_DIR: /data/mail
+      YOUTH_CLAMAV_HOST: clamav
+      YOUTH_WORKER_POLL_SECONDS: "2"
+    command: [python, /srv/deploy/worker.py, maintenance]
+    depends_on:
+      db: {condition: service_healthy}
+      clamav: {condition: service_healthy}
+
+  notification-worker:
+    <<: *app
+    profiles: [notifications]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      YOUTH_STORAGE_DIR: /data/files
+      YOUTH_MAIL_SPOOL_DIR: /data/mail
+      YOUTH_CLAMAV_HOST: clamav
+      YOUTH_WORKER_POLL_SECONDS: "2"
+    command: [python, /srv/deploy/worker.py, notifications]
+    depends_on:
+      db: {condition: service_healthy}
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    environment:
+      YOUTH_DOMAIN: ${YOUTH_DOMAIN:?Set the public DNS hostname}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      private: {ipv4_address: 172.30.70.2}
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+
+networks:
+  private:
+    ipam:
+      # Dynamic addresses come from the upper half so Caddy's fixed 172.30.70.2 —
+      # which uvicorn trusts for forwarded headers — cannot be handed to a service
+      # that starts earlier. Caddy starts last because it waits for a healthy api.
+      config: [{subnet: 172.30.70.0/24, ip_range: 172.30.70.128/25}]
+
+# These names stay unchanged when the source release or working directory changes.
+volumes:
+  postgres_data: {name: youth-prod-postgres}
+  app_data: {name: youth-prod-files}
+  clamav_data: {name: youth-prod-clamav}
+  caddy_data: {name: youth-prod-caddy-data}
+  caddy_config: {name: youth-prod-caddy-config}

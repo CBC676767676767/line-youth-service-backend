@@ -5,7 +5,11 @@ RUN npm ci
 COPY frontend ./
 # A LIFF ID is public client configuration, never a channel secret or access token.
 ARG VITE_LIFF_ID=""
+ARG VITE_LINE_BOT_BASIC_ID=""
+ARG VITE_LINE_BOT_DISPLAY_NAME=""
 ENV VITE_LIFF_ID=${VITE_LIFF_ID}
+ENV VITE_LINE_BOT_BASIC_ID=${VITE_LINE_BOT_BASIC_ID}
+ENV VITE_LINE_BOT_DISPLAY_NAME=${VITE_LINE_BOT_DISPLAY_NAME}
 RUN npm run build
 
 FROM python:3.12-slim AS runtime
@@ -20,4 +24,4 @@ COPY --from=frontend-build /srv/frontend/dist ./frontend/dist
 ENV YOUTH_FRONTEND_DIST=/srv/app/frontend/dist
 USER youth
 EXPOSE 8000
-CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]

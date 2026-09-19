@@ -1,5 +1,5 @@
 from alembic import context
-from app import models, auth_limits  # noqa: F401 -- register all mapped tables
+from app import models, auth_limits, precheck_models, line_reply_models  # noqa: F401 -- register all mapped tables
 from app.config import Settings
 from app.db import Base, make_engine
 

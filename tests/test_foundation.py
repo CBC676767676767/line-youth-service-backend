@@ -51,3 +51,26 @@ def test_main_routes_health_body_limits_and_cors(tmp_path):
         streamed = client.post("/api/v1/auth/email/challenges", content=iter([b"a" * 600_000, b"b" * 600_000]),
                                headers={"Content-Type": "application/json"})
         assert streamed.status_code == 413
+
+
+def test_database_errors_do_not_escape_and_carry_parameters_into_logs(tmp_path):
+    """A re-raised driver error would put bound parameters in the server traceback."""
+    from cryptography.fernet import Fernet
+    from fastapi.testclient import TestClient
+    from sqlalchemy.exc import OperationalError
+    from app.main import create_app
+    settings = Settings(app_env="test", _env_file=None, database_url=f"sqlite:///{tmp_path / 'dberr.db'}",
+                        secret_key="testing-secret-" * 4, totp_encryption_key=Fernet.generate_key().decode())
+    application = create_app(settings)
+
+    @application.get("/_probe_database_error")
+    def probe():
+        raise OperationalError("SELECT * FROM accounts WHERE email=?",
+                               {"email": "applicant@example.test"}, Exception("connection lost"))
+
+    # raise_server_exceptions stays on: escaping the app would fail this call, not return 500.
+    with TestClient(application) as client:
+        response = client.get("/_probe_database_error")
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+    assert "applicant@example.test" not in response.text

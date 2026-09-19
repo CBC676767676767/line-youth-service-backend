@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { api, ApiError, errorMessage, setCsrf } from '../shared/api';
+import PrecheckSummary from '../components/PrecheckSummary';
 import {
   caseLabels,
   documentLabels,
@@ -174,8 +175,11 @@ export default function AdminApp() {
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState('');
   const [checking, setChecking] = useState(false);
+  const [sessionFailure, setSessionFailure] = useState<'refresh' | 'logout' | null>(null);
+  const [identityRefresh, setIdentityRefresh] = useState(0);
   const current = useRef<Me | null>(null);
   const generation = useRef(0);
+  const signingOut = useRef(false);
 
   const identify = useCallback((identity: Me) => {
     generation.current++;
@@ -183,6 +187,8 @@ export default function AdminApp() {
     setCsrf(identity.csrf_token);
     setMe(identity);
     setMessage('');
+    setSessionFailure(null);
+    setChecking(false);
     setReady(true);
   }, []);
 
@@ -195,10 +201,12 @@ export default function AdminApp() {
         const identity = await api<Me>('/me');
         if (active && turn === generation.current) identify(identity);
       } catch (error) {
-        if (active && !(error instanceof ApiError && error.status === 401))
-          setMessage(errorMessage(error));
+        if (active && turn === generation.current && !(error instanceof ApiError && error.status === 401)) {
+          setMessage(`暫時無法確認登入狀態。${errorMessage(error)}`);
+          setSessionFailure('refresh');
+        }
       } finally {
-        if (active) {
+        if (active && turn === generation.current) {
           setReady(true);
           setChecking(false);
         }
@@ -211,9 +219,11 @@ export default function AdminApp() {
       setCsrf();
       setMe(null);
       setReady(true);
+      setChecking(false);
+      setSessionFailure(null);
     };
     const focus = () => {
-      if (current.current) void refreshIdentity();
+      if (current.current && !signingOut.current) void refreshIdentity();
     };
     window.addEventListener('youth:session-expired', expired);
     window.addEventListener('focus', focus);
@@ -223,18 +233,29 @@ export default function AdminApp() {
       window.removeEventListener('youth:session-expired', expired);
       window.removeEventListener('focus', focus);
     };
-  }, [identify]);
+  }, [identify, identityRefresh]);
 
   async function logout() {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    const turn = ++generation.current;
+    setChecking(true);
     try {
       await api('/auth/logout', { method: 'POST' });
-      generation.current++;
+      if (turn !== generation.current) return;
       current.current = null;
       setCsrf();
       setMe(null);
       setMessage('已登出，工作資料已清除。');
+      setSessionFailure(null);
     } catch (error) {
-      setMessage(errorMessage(error));
+      if (turn === generation.current && current.current) {
+        setMessage(`登出未完成，尚未確認工作階段已結束。${errorMessage(error)}`);
+        setSessionFailure('logout');
+      }
+    } finally {
+      signingOut.current = false;
+      if (turn === generation.current) setChecking(false);
     }
   }
 
@@ -271,7 +292,18 @@ export default function AdminApp() {
   const identityKey = JSON.stringify([me.account.id, me.roles.slice().sort(), me.permissions]);
   return (
     <div className="ad-root">
-      <Workspace key={identityKey} me={me} checking={checking} onLogout={logout} />
+      <Workspace
+        key={identityKey}
+        me={me}
+        checking={checking}
+        onLogout={logout}
+        sessionMessage={message}
+        sessionRetryLabel={sessionFailure === 'logout' ? '重試登出' : '重新確認登入'}
+        onRetrySession={() => {
+          if (sessionFailure === 'logout') void logout();
+          else setIdentityRefresh((value) => value + 1);
+        }}
+      />
     </div>
   );
 }
@@ -437,10 +469,16 @@ function Workspace({
   me,
   checking,
   onLogout,
+  sessionMessage,
+  sessionRetryLabel,
+  onRetrySession,
 }: {
   me: Me;
   checking: boolean;
   onLogout: () => Promise<void>;
+  sessionMessage: string;
+  sessionRetryLabel: string;
+  onRetrySession: () => void;
 }) {
   const canReadCases = me.roles.some((role) => caseRoles.includes(role));
   const canManageAccounts = me.roles.includes('admin');
@@ -498,7 +536,9 @@ function Workspace({
     const turn = ++requestSequence.current;
     if (id !== selectedId) setCaseTab('documents');
     setSelectedId(id);
-    setBundle(null);
+    // Keep unchanged review cards mounted while refreshing this case so their
+    // unsaved notes and evidence survive a sibling card's successful save.
+    setBundle((previous) => (previous?.detail.id === id ? previous : null));
     setLoading(true);
     setError('');
     try {
@@ -511,23 +551,27 @@ function Workspace({
       if (alive.current && turn === requestSequence.current)
         setBundle({ detail, scheme, schema, reviews: reviews.items });
     } catch (cause) {
-      if (alive.current && turn === requestSequence.current) setError(errorMessage(cause));
+      if (alive.current && turn === requestSequence.current) {
+        setError(errorMessage(cause));
+        if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) setBundle(null);
+      }
     } finally {
       if (alive.current && turn === requestSequence.current) setLoading(false);
     }
   }
   const run: Run = async (operation, success) => {
+    const turn = requestSequence.current;
     setBusy(true);
     setError('');
     setNotice('');
     try {
       await operation();
-      if (!alive.current) return false;
+      if (!alive.current || turn !== requestSequence.current) return false;
       setNotice(success);
       if (selectedId) await loadCase(selectedId);
       return true;
     } catch (cause) {
-      if (alive.current) setError(errorMessage(cause));
+      if (alive.current && turn === requestSequence.current) setError(errorMessage(cause));
       return false;
     } finally {
       if (alive.current) setBusy(false);
@@ -537,6 +581,7 @@ function Workspace({
     requestSequence.current++;
     setSelectedId(null);
     setBundle(null);
+    setLoading(false);
     setCaseTab('documents');
     setError('');
     setNotice('');
@@ -591,7 +636,7 @@ function Workspace({
           <span>新竹青年服務 · 後台</span>
           <div>
             <span className="ad-user-email">{me.account.email}</span>
-            <button className="ad-btn ad-quiet" disabled={busy} onClick={() => void onLogout()}>
+            <button className="ad-btn ad-quiet" disabled={busy || checking} onClick={() => void onLogout()}>
               <LogOut size={15} /> 登出
             </button>
           </div>
@@ -605,6 +650,14 @@ function Workspace({
               ))}
             {checking && <span role="status">正在確認登入…</span>}
           </div>
+          {sessionMessage && (
+            <Notice error>
+              {sessionMessage}
+              <button className="ad-text-link" disabled={busy || checking} onClick={onRetrySession}>
+                {sessionRetryLabel}
+              </button>
+            </Notice>
+          )}
           {error && (
             <Notice error>
               {error}
@@ -617,7 +670,7 @@ function Workspace({
             </Notice>
           )}
           {notice && <Notice>{notice}</Notice>}
-          <fieldset className="ad-work-area" disabled={busy || checking}>
+          <fieldset className="ad-work-area" disabled={busy || checking || loading}>
             {view === 'accounts' && canManageAccounts ? (
               <Accounts me={me} />
             ) : selectedId ? (
@@ -634,20 +687,20 @@ function Workspace({
                     <RefreshCw size={15} /> 更新案件
                   </button>
                 </div>
-                {loading ? (
+                {loading && (
                   <div className="ad-empty" role="status">
                     正在讀取案件與審查資料…
                   </div>
-                ) : (
-                  bundle && (
-                    <CaseWorkspace
-                      bundle={bundle}
-                      me={me}
-                      run={run}
-                      tab={caseTab}
-                      onTab={setCaseTab}
-                    />
-                  )
+                )}
+                {bundle && (
+                  <CaseWorkspace
+                    key={bundle.detail.id}
+                    bundle={bundle}
+                    me={me}
+                    run={run}
+                    tab={caseTab}
+                    onTab={setCaseTab}
+                  />
                 )}
               </>
             ) : (
@@ -814,6 +867,7 @@ function CaseWorkspace({
       </nav>
       {tab === 'documents' && (
         <>
+          <PrecheckSummary key={`${detail.id}-${detail.version}`} caseId={detail.id} />
           <section className="ad-card">
             <div className="ad-section-heading">
               <h2>申請人填寫資料</h2>
@@ -1013,6 +1067,7 @@ function TaskCreate({ caseId, run }: { caseId: string; run: Run }) {
   const [criteria, setCriteria] = useState('');
   const [due, setDue] = useState(futureDate);
   const keyFor = useStableKey();
+  const creationSequence = useRef(0);
   async function submit(event: FormEvent) {
     event.preventDefault();
     const body = {
@@ -1021,15 +1076,22 @@ function TaskCreate({ caseId, run }: { caseId: string; run: Run }) {
       acceptance_criteria: criteria,
       due_at: new Date(due).toISOString(),
     };
-    await run(
+    const saved = await run(
       () =>
         api(`/staff/cases/${caseId}/tasks`, {
           method: 'POST',
           json: body,
-          idempotencyKey: keyFor(body),
+          idempotencyKey: keyFor([creationSequence.current, body]),
         }),
       '補件要求已建立，通知將依伺服器排程處理。',
     );
+    if (saved) {
+      creationSequence.current++;
+      setTitle('');
+      setRequirement('');
+      setCriteria('');
+      setDue(futureDate());
+    }
   }
   return (
     <details className="ad-card ad-create-task">
@@ -1559,6 +1621,7 @@ function DecisionPanel({
   const [confirmed, setConfirmed] = useState(false);
   const [completion, setCompletion] = useState('');
   const keyFor = useStableKey();
+  useEffect(() => setConfirmed(false), [detail.version]);
   const canDecide =
     me.roles.includes('supervisor') && detail.allowed_actions.includes('create_decision');
   const canClose = me.roles.includes('supervisor') && detail.allowed_actions.includes('close_case');

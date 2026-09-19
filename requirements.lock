@@ -125,9 +125,11 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.4
+    # via line-youth-service-backend (Asia/Taipei on Windows)
 uvicorn[standard]==0.53.0
     # via line-youth-service-backend (pyproject.toml)
-uvloop==0.22.1
+uvloop==0.22.1 ; sys_platform != "win32"
     # via uvicorn
 watchfiles==1.2.0
     # via uvicorn

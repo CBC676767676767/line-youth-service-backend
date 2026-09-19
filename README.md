@@ -2,6 +2,8 @@
 
 以 LINE 作為服務入口，協助青年申請 AI 工具補助、核對文件、補正與追蹤進度，並讓承辦以明確依據完成審查。本儲存庫包含民眾網站、獨立管理後台與既有案件 API。登入、案件、附件、補件及核定均使用伺服器紀錄；目前尚未連接市府正式收件或出納系統。
 
+另提供 `/precheck` 青年補助預檢精靈，以公開規則及使用者自述產生行政提示、條件式試算與備件清單，登入後可保存至本人草稿，並在民眾／承辦案件頁查看摘要。
+
 技術組合為 React／TypeScript／Vite 雙入口前端、瀏覽器內 Tesseract OCR，以及 Python 3.12、FastAPI、SQLAlchemy 2、PostgreSQL 17、Alembic 和獨立背景 worker。附件保存在私有本機目錄；容器模式使用共享 named volume。實作範圍、驗證證據及待辦詳見 [實作狀態](docs/implementation-status.md)。
 
 
@@ -47,6 +49,9 @@ cd ..
 
 ## 已實作的核心流程
 
+- 青年補助預檢：購買情境、工具／方案／通路、條件自查、Decimal 條件式金額試算、逐月交易及個人化備件、列印摘要；匿名輸入僅留記憶體。
+- 登入後由後端重算保存不可變預檢快照；逐案授權、CSRF、ETag、冪等重試與完整重算差異，行政及資安結果分開。
+
 - 信箱一次性驗證碼、Cookie 工作階段、CSRF、承辦密碼與 TOTP MFA；LINE token 後端驗證及帳號綁定。
 - 固定方案草稿、正式提交、不可變回執、補件任務修訂、接受／退回、主管核定及結案。
 - 逐案及角色授權、ETag 版本檢查、正式提交冪等、重要操作稽核。
@@ -57,6 +62,50 @@ cd ..
 本機預設掃描器是 `development-format-only-NOT-ANTIVIRUS`，只用於開發流程，沒有防毒保證。正式環境設定會拒絕開發掃描器；ClamAV 不可用時不會把文件標成 CLEAN。LINE 沒有設定時不會假裝已發送，站內通知仍可展示完整流程。
 
 ## 本機啟動：Docker 資料庫 + 原生 Python
+
+### LINE 聊天互動本機驗證
+
+開啟 <http://127.0.0.1:8765/line-simulator>，可以實際點選六格選單及訊息按鈕。流程為購買情境、工具、計費方式、通路，再以短效不透明交接碼帶到 `/precheck`；交接碼只帶入非敏感選項，並立即從頁面 URL 移除，不能作登入或案件授權。
+
+在 Web 頁面執行預檢後回到模擬器按「查看結果」，僅呈現後端產生的檢查數與狀態摘要。登入、保存、完整案件與待辦均沿用系統 API。側欄可測試重複事件、舊按鈕、25 分鐘過期、附件誤傳、預檢服務失敗，以及三種清楚標示的 DEMO 結果卡。
+
+模擬器只在 development/test 且 loopback 用戶端可用；production 不開放。它以獨立合成 channel、使用者和密鑰，經原本 webhook 的驗簽／去重流程送到 fake sender。沒有對 LINE API 發送訊息、沒有新增 tunnel、沒有更動外部 Webhook、Rich Menu 或帳號回覆設定；也沒有推送 GitHub。LINE Login/LIFF 真實環境未驗收，不把本機模擬宣稱為真實 LINE 已接通。
+
+對話、交接選項與安全摘要只在有上限的記憶體中保留；資料庫只新增事件與 fake delivery 中繼資料，不保存聊天文字、LINE userId、reply token 或匿名表單。新 migration `d76e14b290a1` 接續預檢快照 migration，不重設既有資料。每個模擬使用者的時鐘與狀態隔離；資安情境練習不改變預檢或使既有交接失效。
+
+詳見 [本機 LINE 接線與驗證](docs/line-local-setup.md)及[離線圖文選單素材](docs/line-operations.md)。
+
+### 預檢 MVP 快速示範（Linux／WSL）
+
+原本私有郵件與附件 adapter 使用 POSIX 權限；Windows 請透過 WSL 執行，勿以省略權限檢查的方式繞過。首次執行需要 Python >=3.12、`python3-venv`/venv 模組及 `pip3`，可從專案根目錄啟動：
+
+```sh
+sh scripts/start-precheck-demo.sh
+```
+
+Windows PowerShell（本機已驗證 `kali-linux`）：
+
+```powershell
+wsl.exe -d kali-linux -- sh scripts/start-precheck-demo.sh
+```
+
+開啟 <http://127.0.0.1:8765/precheck>。腳本建立專屬 Linux 虛擬環境，沿用 Alembic 遷移及原本示範／整合試辦方案；SQLite、郵件與秘密保存在啟動時顯示的 `/var/tmp/youth-precheck-*` 私有目錄，重啟不重設資料。不啟動 worker、不發送真實 LINE/SMTP 訊息。Ctrl+C 停止服務。
+
+同步網站分支後，民眾 `/` 與承辦 `/admin/` 保留原本 React／TypeScript 入口；先執行 `npm ci --prefix frontend` 及 `npm run build --prefix frontend` 即可由同一個本機服務操作。民眾入口含補助預檢連結，民眾與承辦的案件詳情均提供唯讀預檢快照摘要。沒有建置 React 時，`/precheck` 仍可獨立操作，原入口會如實提示尚未建置。
+
+預設載入 `hsinchu_ai_2026 / public_2026_09_19` 官方公開來源快照，可直接檢查明確條件，並明示 `agency_approved=false` 與預算狀態未知。可使用「填入一組合成示範資料」快速試用：真實公告工具項目搭配虛构使用者填答，未知方案仍保留人工確認。一般類別填入 4,000 元臺幣合格費用，條件式試算為 2,000 元；改為特定類別則為 3,600 元，證明待確認。這些不是核定金額。
+
+以 `demo-user@example.org` 走既有信箱驗證登入（`example.test` 會被既有 EmailStr 驗證拒絕）；驗證碼只寫入啟動時顯示資料目錄下 `mail/` 最新 `.eml`，不由 API 回傳。登入後建立／選擇本人草稿、保存，將購買通路改為代購重新預檢並保存第二版，在「我的案件」查看新增問題。登入與保存均不等於送件。郵件 MIME 可能為 Base64，需以郵件閱讀器或 Python email parser 開啟，勿直接把編碼文字當作驗證碼。
+
+若要展示完全已收錄的合成工具／方案流程，停止服務後改用 `sh scripts/start-precheck-demo.sh --policy demo`。選「合成 AI 工作室 → 創作月訂閱（內含額度）」、月訂閱、官方網站及 `https://studio.example`，用生日 `2000-01-01`／新竹市自述／一般申請／購買日 `2026-09-01`、訂閱 `2026-09-01` 至 `2026-10-01`、本人付款。所有結果明示 DEMO。真實規則的[來源與歧義](docs/precheck-policy-sources.md)及[待確認清單](docs/precheck-pending-confirmations.md)分開維護。
+
+### 規則設定
+
+`YOUTH_PRECHECK_RULES_PATH` 指定 JSON；每次請求先通過 `PrecheckBundle` schema 驗證。預設真實公开來源種子在 `app/data/precheck-hsinchu-115.json`，合成規則在 `app/data/precheck-demo.json`。公開來源已核對和機關驗收是不同狀態；沒有可信來源的普通 draft 仍全部待確認。`YOUTH_PRECHECK_DEMO_ENABLED=false` 禁止 demo 判定；production 無論開關值都不會套用 demo。`YOUTH_PRECHECK_OFFICIAL_APPLICATION_URL` 只接受 HTTPS 且不得含帳密，優先於規則檔已配置的網址；兩者皆空時顯示未配置。修改規則及目錄須更新版本；舊快照保存原始輸入、完整設定、結果及雜湊，不會回寫舊結果。
+
+新增路由皆在 `/api/v1`：`GET /precheck/catalog`、`POST /precheck/evaluate`、`GET/POST /cases/{case_id}/precheck`。匿名評估有 16 KiB 實際請求容量上限、字串長度驗證、既有資料庫速率限制及 `private, no-store`；只保存不可反推的來源限流識別，不保存匿名表單或結果。案件保存接受相同輸入格式，由伺服器重算，使用現有 CSRF、`If-Match` 與 `Idempotency-Key`。
+
+文件準備勾選僅為「使用者自述已備妥」，不代表系統收到或內容核對；本輪不做文件解析、真偽辨識、政府介接、核定與額度保留。
 
 需要 Python 3.12 與可執行 Docker Compose 的環境。以下命令皆從專案根目錄執行。現有工作環境已建好 `.venv`、私有 `.env`、資料庫與示範方案；重新接手時，直接檢查服務與遷移狀態即可。
 
@@ -169,6 +218,6 @@ docker compose --profile app up -d api worker
 | [migrations](migrations) | Alembic 資料庫遷移 |
 | [tests](tests) | 自動化測試 |
 
-程式已發布至私有儲存庫 [CBC676767676767/line-youth-service-backend](https://github.com/CBC676767676767/line-youth-service-backend)，主分支為 `main`。需使用具有儲存庫權限的 GitHub 帳號存取；執行環境憑證不隨程式發布。
+程式已發布至**公開**儲存庫 [CBC676767676767/line-youth-service-backend](https://github.com/CBC676767676767/line-youth-service-backend)，主分支為 `main`；任何人都能讀取原始碼與提交歷史。執行環境憑證不隨程式發布，也絕不可提交：`.env`、`runtime.env`、資料庫密碼、session secret、TOTP 加密金鑰、LINE channel secret 與 access token、SMTP 密碼一律只存在於部署主機上的 root-only 設定檔。任何曾經推送到這個儲存庫的憑證都必須視為已外洩並立即輪替。
 
 LINE 行為依據：[訊息 retry key](https://developers.line.biz/en/docs/messaging-api/retrying-api-request/)、[Webhook 原文簽章驗證](https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/)。

@@ -31,6 +31,7 @@ import {
 import IdentityOCR from "../components/IdentityOCR";
 import OcrLab from "../components/OcrLab";
 import { isHsinchuCityAddress, type IdentityResult } from "../identity";
+import { mapPrecheckToForm } from "../precheck-import";
 
 const SCHEME = "hsinchu-ai-grant-2026";
 const typeById: Record<string, string> = {
@@ -44,6 +45,33 @@ const typeById: Record<string, string> = {
   relationship: "RELATIONSHIP",
 };
 const steps = ["申請資料", "證明文件", "安全核對", "確認送件"];
+const importLabels: Partial<Record<keyof Form, string>> = {
+  birth: "出生日期", city: "戶籍縣市", tool: "AI 工具", channel: "購買管道",
+  plan: "訂閱方式", purchaseDate: "購買日期", periodEnd: "訂閱結束日",
+  amount: "臺幣實付金額", paymentMethod: "付款方式", payer: "付款人",
+  special: "特定身分補助", requested: "申請補助金額",
+};
+const importValues: Record<string, string> = {
+  official: "官方網站", reseller: "代購或集合式平台", unknown: "待確認",
+  monthly: "月訂閱", annual: "年訂閱", credits: "預付額度／點數",
+  self: "申請人本人", relative: "親屬代付", card: "信用卡", telecom: "電信帳單",
+  wallet: "電子支付", other: "其他方式",
+};
+function importValue(value: Form[keyof Form] | undefined) {
+  if (typeof value === "boolean") return value ? "是，仍須提供資格證明" : "否";
+  return value ? importValues[value] || value : "尚未填寫";
+}
+function sameSavedForm(left: Record<string, unknown>, right: Record<string, unknown>) {
+  const entries = (value: Record<string, unknown>) => Object.keys(value).sort().map((key) => [key, value[key]]);
+  return JSON.stringify(entries(left)) === JSON.stringify(entries(right));
+}
+type ImportPreview = {
+  snapshotId: string;
+  rulesVersion: string;
+  updates: Partial<Form>;
+  unresolved: string[];
+  selected: (keyof Form)[];
+};
 export function emptyForm(email = ""): Form {
   return {
     name: "",
@@ -89,11 +117,13 @@ export default function ApplicationForm({
   caseId,
   onSubmitted,
   onSafety,
+  onUnsavedChange,
 }: {
   me: Me;
   caseId?: string;
   onSubmitted: (id: string) => void;
   onSafety: () => void;
+  onUnsavedChange: (value: boolean) => void;
 }) {
   const [record, setRecord] = useState<CaseData | null>(null);
   const [form, setForm] = useState<Form>(() =>
@@ -111,6 +141,7 @@ export default function ApplicationForm({
   const [safety, setSafety] = useState([false, false, false]);
   const [dirty, setDirty] = useState(false);
   const [otherDrafts, setOtherDrafts] = useState<CaseData[]>([]);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const createKey = useRef(operationKey());
   const pendingSubmit = useRef<{
     id: string;
@@ -120,27 +151,32 @@ export default function ApplicationForm({
   } | null>(null);
   const mounted = useRef(true);
   const lock = useRef(false);
+  const hasUnfinishedWork = dirty || busy || !!pendingSubmit.current;
+  useEffect(() => {
+    onUnsavedChange(hasUnfinishedWork);
+  }, [hasUnfinishedWork, onUnsavedChange]);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      onUnsavedChange(false);
     };
-  }, []);
+  }, [onUnsavedChange]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (hasUnfinishedWork) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [hasUnfinishedWork]);
   function adopt(next: CaseData & { files?: UploadedFile[] }) {
     setRecord(next);
     setForm({
       ...emptyForm(me.account.email || ""),
-      ...next.form_data,
+      ...(next.scheme_id === SCHEME ? next.form_data : {}),
     } as Form);
     const saved: Record<string, UploadedFile> = {};
     for (const file of next.files || [])
@@ -148,6 +184,7 @@ export default function ApplicationForm({
     setFiles(saved);
     setDirty(false);
     setConfirmed(false);
+    setImportPreview(null);
     pendingSubmit.current = null;
   }
   async function reload() {
@@ -197,6 +234,7 @@ export default function ApplicationForm({
       if (
         e instanceof ApiError &&
         e.status < 500 &&
+        e.status !== 401 &&
         e.code !== "OPERATION_RUNNING"
       )
         pendingSubmit.current = null;
@@ -217,6 +255,50 @@ export default function ApplicationForm({
     }));
     setDirty(true);
     setConfirmed(false);
+    setImportPreview(null);
+  }
+  async function reviewSavedPrecheck() {
+    if (!record) return;
+    const response = await api<{
+      latest: { id: string; rules_version: string; inputs: Record<string, unknown> } | null;
+    }>(`/cases/${record.id}/precheck`);
+    if (!mounted.current) return;
+    if (!response.latest) {
+      setImportPreview(null);
+      setNotice("這份草稿尚未保存預檢填答。可先開啟補助預檢，保存至同一草稿後再回來檢視。");
+      return;
+    }
+    const latest = await api<CaseData>(`/cases/${record.id}`);
+    if (!mounted.current) return;
+    if (latest.status !== "DRAFT") {
+      adopt(latest);
+      return;
+    }
+    if (!sameSavedForm(record.form_data, latest.form_data)) {
+      setImportPreview(null);
+      setError("伺服器上的申請欄位已由其他操作修改。已保留本頁填答；請先核對並重新讀取最新案件，再檢視預檢欄位。");
+      return;
+    }
+    // Snapshot saves also advance the case version; only refresh its version when
+    // the formal server fields still match our saved baseline, preserving local edits.
+    setRecord(latest);
+    const mapped = mapPrecheckToForm(response.latest.inputs, form);
+    const keys = Object.keys(mapped.updates) as (keyof Form)[];
+    setImportPreview({
+      ...mapped,
+      snapshotId: response.latest.id,
+      rulesVersion: response.latest.rules_version,
+      selected: keys.filter((key) => form[key] === "" || form[key] === mapped.updates[key]),
+    });
+  }
+  function applyPrecheckSelection() {
+    if (!importPreview || locked) return;
+    const updates = Object.fromEntries(importPreview.selected.map((key) => [key, importPreview.updates[key]])) as Partial<Form>;
+    setForm((current) => ({ ...current, ...updates }));
+    setDirty(true);
+    setConfirmed(false);
+    setImportPreview(null);
+    setNotice("已帶入勾選的預檢填答，請核對後儲存草稿。預檢自述不等於文件已上傳、查證或正式送件。");
   }
   async function save() {
     if (!record) throw new Error("Case missing");
@@ -279,6 +361,7 @@ export default function ApplicationForm({
     }));
     setDirty(true);
     setConfirmed(false);
+    setImportPreview(null);
     setNotice("已帶入核對後的欄位。請在文件清單選擇原始證件檔案上傳。");
   }
   const docs: Doc[] = requiredDocs(form).map((d) => ({
@@ -287,6 +370,7 @@ export default function ApplicationForm({
   }));
   const findings = checks(form, docs);
   const missing = docs.filter((d) => !d.file);
+  const estimatedAmount = estimate(form);
   if (loading) return <p role="status">正在讀取申請資料…</p>;
   if (!record)
     return (
@@ -350,6 +434,17 @@ export default function ApplicationForm({
         </button>
       </section>
     );
+  if (record.scheme_id !== SCHEME)
+    return (
+      <section className="card">
+        <h2>此草稿使用其他方案的申請格式</h2>
+        <p>目前這份表單提供青年 AI 工具補助申請。你的原草稿與預檢快照仍保留，請回到案件查看，或開啟預檢整理需要確認的資料。</p>
+        <div className="button-row">
+          <button className="btn primary" onClick={() => onSubmitted(record.id)}>返回此案件</button>
+          <a className="btn" href="/precheck">開啟補助預檢</a>
+        </div>
+      </section>
+    );
   return (
     <>
       <div className="page-heading">
@@ -370,6 +465,47 @@ export default function ApplicationForm({
           </li>
         ))}
       </ol>
+      <section className="card precheck-import">
+        <h2>接續已保存的預檢填答</h2>
+        <p>先檢視這份草稿的預檢紀錄，再自行勾選要帶入的欄位。原申請資料不會自動被覆寫，文件仍須另行上傳。</p>
+        <button className="btn" disabled={locked} onClick={() => act(reviewSavedPrecheck)}>檢視已保存預檢可帶入欄位</button>
+        {importPreview && (
+          <div className="precheck-import-preview">
+            <p className="small muted">預檢規則版本：{importPreview.rulesVersion} · 使用者自述，尚未核對文件</p>
+            {Object.keys(importPreview.updates).length > 0 ? (
+              <div className="precheck-import-table">
+                <table>
+                  <caption>逐欄確認後帶入；有既有內容的欄位不會預先勾選。</caption>
+                  <thead><tr><th>帶入欄位</th><th>目前填答</th><th>預檢填答</th></tr></thead>
+                  <tbody>
+                    {(Object.keys(importPreview.updates) as (keyof Form)[]).map((key) => (
+                      <tr key={key}>
+                        <td><label className="check-row"><input type="checkbox" disabled={locked}
+                          aria-label={`帶入${importLabels[key] || key}`}
+                          checked={importPreview.selected.includes(key)}
+                          onChange={(event) => {
+                            const selected = event.target.checked;
+                            setImportPreview((current) => current && ({ ...current, selected: selected
+                              ? [...current.selected, key] : current.selected.filter((field) => field !== key) }));
+                          }} />{importLabels[key] || key}</label></td>
+                        <td>{importValue(form[key])}</td><td>{importValue(importPreview.updates[key])}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p>沒有可直接帶入的新欄位；現有填答已保留。</p>}
+            {importPreview.unresolved.length > 0 && <div className="notice warning">
+              <p>以下資料仍需自行核對或填寫：</p>
+              <ul>{importPreview.unresolved.map((message, index) => <li key={index}>{message}</li>)}</ul>
+            </div>}
+            <div className="button-row">
+              <button className="btn primary" disabled={locked || !importPreview.selected.length} onClick={applyPrecheckSelection}>帶入已勾選欄位</button>
+              <button className="btn" disabled={busy} onClick={() => setImportPreview(null)}>取消帶入</button>
+            </div>
+          </div>
+        )}
+      </section>
       {error && (
         <div role="alert" className="notice error">
           <p>{error}</p>
@@ -492,20 +628,15 @@ export default function ApplicationForm({
             </label>
             <div className="estimate-box">
               <div>
-                <small>依填寫金額試算</small>
-                <strong>NT$ {money(estimate(form))}</strong>
+                <small>依填答的條件式試算</small>
+                <strong>{estimatedAmount === null ? "待確認" : `NT$ ${money(estimatedAmount)}`}</strong>
                 <p>
-                  依 {form.special ? "90%" : "50%"}{" "}
-                  比例與上限估算，仍以承辦核定為準。
+                  {estimatedAmount === null
+                    ? "請先填寫可確認的臺幣實付金額；未知費用不視為零。"
+                    : `依 ${form.special ? "90%" : "50%"} 比例與上限試算，尚未核定，尾數處理仍待機關確認。`}
                 </p>
+                <p className="small muted">申請補助金額請依文件自行填寫，試算不會自動帶入。</p>
               </div>
-              <button
-                className="btn"
-                disabled={locked || !Number(form.amount)}
-                onClick={() => update("requested", String(estimate(form)))}
-              >
-                帶入試算金額
-              </button>
             </div>
           </>
         )}
@@ -651,7 +782,7 @@ export default function ApplicationForm({
               onClick={() =>
                 act(async () => {
                   await save();
-                  onSafety();
+                  if (mounted.current) onSafety();
                 })
               }
             >
@@ -762,7 +893,7 @@ export default function ApplicationForm({
                   });
                   pendingSubmit.current = null;
                   setDirty(false);
-                  onSubmitted(record.id);
+                  if (mounted.current) onSubmitted(record.id);
                 })
               }
             >

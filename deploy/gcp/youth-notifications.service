@@ -1,0 +1,17 @@
+[Unit]
+Description=Explicitly enabled outbound case notifications
+Requires=youth-service.service
+After=youth-service.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/youth-service/current
+Environment=YOUTH_ENV_FILE=/etc/youth-service/runtime.env
+ExecStart=/opt/youth-service/current/deploy/gcp/compose.sh --profile notifications up -d notification-worker
+ExecStop=/opt/youth-service/current/deploy/gcp/compose.sh --profile notifications stop notification-worker
+TimeoutStartSec=300
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

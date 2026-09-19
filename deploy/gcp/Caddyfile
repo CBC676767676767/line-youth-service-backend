@@ -1,0 +1,11 @@
+{
+	admin off
+}
+
+{$YOUTH_DOMAIN} {
+	encode zstd gzip
+	# Access logging is intentionally absent: URLs can contain one-time handoffs.
+	@private path /line-simulator /line-simulator/* /api/v1/line/simulator/* /docs /docs/* /redoc /openapi.json /health/*
+	respond @private 404
+	reverse_proxy api:8000
+}

@@ -215,7 +215,7 @@ def _case_view(case: Case, p: Principal, *, staff=False, db: Session | None = No
             actions.append("start_review")
         if case.status == "UNDER_REVIEW" and p.roles.intersection({"reviewer", "supervisor"}):
             actions.extend(["create_task", "review_case"])
-        if "supervisor" in p.roles:
+        if "supervisor" in p.roles and _has_scope(p, case.scheme_id, {"supervisor"}, case.id):
             if case.status == "UNDER_REVIEW":
                 actions.append("create_decision")
             if case.status == "DECIDED":

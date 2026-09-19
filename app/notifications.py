@@ -15,6 +15,7 @@ from app.access import case_filter, case_for
 from app.auth import Principal, current_principal
 from app.common import ApiError, audit, check_version, etag, ok
 from app.db import get_db, new_id, utcnow
+from app.line_replies import LineReplyBuffer, enqueue_line_reply
 from app.models import (
     Case, IdentityLink, NotificationAttempt, NotificationIntent, OutboxJob, WebhookInbox,
 )
@@ -194,6 +195,7 @@ def retry_notification(notification_id: str, body: RetryRequest, request: Reques
 async def line_webhook(request: Request, x_line_signature: str = Header(default=""),
                        db: Session = Depends(get_db)):
     settings = request.app.state.settings
+    received_at = utcnow()
     if not (settings.line_channel_secret and settings.line_destination_user_id and settings.line_messaging_channel_id):
         raise ApiError(503, "LINE_WEBHOOK_NOT_CONFIGURED", "LINE webhook 尚未設定。")
     raw = bytearray()
@@ -212,6 +214,11 @@ async def line_webhook(request: Request, x_line_signature: str = Header(default=
     events = document.get("events")
     if not isinstance(events, list) or len(events) > 1000:
         raise ApiError(400, "INVALID_WEBHOOK_EVENTS", "Webhook 事件格式錯誤。")
+    replies_enabled = (getattr(settings, "line_bot_enabled", False)
+                       and getattr(settings, "line_reply_mode", "disabled") in {"fake", "live"})
+    reply_buffer = getattr(request.app.state, "line_reply_buffer", None)
+    if replies_enabled and not isinstance(reply_buffer, LineReplyBuffer):
+        raise ApiError(503, "LINE_REPLY_WORKER_UNAVAILABLE", "LINE 回覆服務尚未就緒。")
     validated = []
     for event in events:
         if not isinstance(event, dict):
@@ -229,15 +236,24 @@ async def line_webhook(request: Request, x_line_signature: str = Header(default=
             event_at = datetime.fromtimestamp(timestamp / 1000, UTC)
         except (ValueError, OverflowError, OSError) as exc:
             raise ApiError(400, "INVALID_WEBHOOK_EVENT", "Webhook 時間格式錯誤。") from exc
-        validated.append((event_id, event_type, event_at, {"user_id": user_id}))
+        # Existing follow association semantics require the subject. Anonymous
+        # messages and postbacks never persist a subject, text, token or answers.
+        payload = {"user_id": user_id} if event_type in {"follow", "unfollow"} else {}
+        validated.append((event_id, event_type, event_at, payload, event))
     inserted = 0
+    queued_ids = []
     try:
-        for event_id, event_type, event_at, payload in validated:
+        for event_id, event_type, event_at, payload, event in validated:
             try:
                 with db.begin_nested():
                     db.add(WebhookInbox(channel_id=settings.line_messaging_channel_id, event_id=event_id,
                                         event_type=event_type, event_at=event_at, payload=payload, status="PENDING"))
                     db.flush()
+                    if replies_enabled:
+                        reply = enqueue_line_reply(db, event, settings, buffer=reply_buffer,
+                                                   received_at=received_at, event_at=event_at)
+                        if reply is not None:
+                            queued_ids.append(reply.id)
                 inserted += 1
             except IntegrityError:
                 # The unique inbox key, not an in-memory cache, handles redelivery.
@@ -250,5 +266,7 @@ async def line_webhook(request: Request, x_line_signature: str = Header(default=
         db.commit()
     except SQLAlchemyError as exc:
         db.rollback()
+        for job_id in queued_ids:
+            reply_buffer.discard(job_id)
         raise ApiError(503, "WEBHOOK_STORAGE_UNAVAILABLE", "事件尚未可靠保存，請稍後重送。") from exc
     return ok(request, {"accepted": True, "new_events": inserted})

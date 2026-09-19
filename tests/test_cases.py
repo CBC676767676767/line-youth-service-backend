@@ -378,6 +378,48 @@ def test_allowed_actions_follow_read_only_access_and_withdrawal_policy(workflow)
     assert withdrawn.status_code == 409
 
 
+@pytest.mark.parametrize(("status", "action"), [
+    ("UNDER_REVIEW", "create_decision"), ("DECIDED", "close_case"),
+])
+def test_supervisor_actions_require_supervisor_scope_for_the_selected_case(workflow, status, action):
+    env = workflow
+    case_id = review_case(env)
+    with env.factory() as db:
+        case = db.get(Case, case_id)
+        case.assigned_to = "reviewer"
+        case.status = status
+        reviewer = db.scalar(select(RoleGrant).where(RoleGrant.account_id == "reviewer"))
+        reviewer.scope_type, reviewer.scope_id = "SCHEME", case.scheme_id
+        db.add(RoleGrant(account_id="reviewer", role="supervisor", scope_type="SCHEME",
+                         scope_id="other-scheme"))
+        db.commit()
+
+    detail = env.call("reviewer", "GET", f"/staff/cases/{case_id}").json()["data"]
+    listed = env.call("reviewer", "GET", "/staff/cases").json()["data"]["items"]
+    assert action not in detail["allowed_actions"]
+    assert action not in next(item for item in listed if item["id"] == case_id)["allowed_actions"]
+    if status == "UNDER_REVIEW":
+        assert {"create_task", "review_case"} <= set(detail["allowed_actions"])
+        body = {"outcome": "APPROVED", "reason": "Scoped action regression",
+                "rule_version_id": env.rule_id,
+                "evidence_refs": [{"case_revision_id": detail["revisions"][0]["id"],
+                                   "rule_version_id": env.rule_id}]}
+        path = f"/staff/cases/{case_id}/decisions"
+    else:
+        body = {"completion_note": "Scoped action regression"}
+        path = f"/staff/cases/{case_id}/close"
+    denied = env.call("reviewer", "POST", path, body, etag=detail["etag"], key=str(uuid4()))
+    assert denied.status_code == 404
+
+    with env.factory() as db:
+        db.add(RoleGrant(account_id="reviewer", role="supervisor", scope_type="CASE", scope_id=case_id))
+        db.commit()
+    detail = env.call("reviewer", "GET", f"/staff/cases/{case_id}").json()["data"]
+    listed = env.call("reviewer", "GET", "/staff/cases").json()["data"]["items"]
+    assert action in detail["allowed_actions"]
+    assert action in next(item for item in listed if item["id"] == case_id)["allowed_actions"]
+
+
 def test_explicit_accepted_replacement_unblocks_rejected_original(workflow):
     env = workflow
     case_id, _ = new_draft(env)

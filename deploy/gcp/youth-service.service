@@ -1,0 +1,20 @@
+[Unit]
+Description=Youth service production containers
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/youth-service/runtime.env
+ConditionPathExists=/opt/youth-service/current/deploy/gcp/compose.yaml
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/youth-service/current
+Environment=YOUTH_ENV_FILE=/etc/youth-service/runtime.env
+ExecStart=/opt/youth-service/current/deploy/gcp/compose.sh up -d --wait --wait-timeout 900 db clamav api maintenance caddy
+ExecStop=/opt/youth-service/current/deploy/gcp/compose.sh stop caddy api maintenance
+TimeoutStartSec=1000
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
