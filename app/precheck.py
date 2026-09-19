@@ -266,6 +266,17 @@ def catalog(request: Request):
     return ok(request, data, headers=PRIVATE_HEADERS)
 
 
+@router.get("/precheck/restricted-tools")
+def restricted_tools(request: Request):
+    """Public, so the entry pages can warn before anyone fills a whole form.
+
+    The browser copy is a courtesy. Submission is refused on the server, which
+    is the only place that sees every submission.
+    """
+    from app.restricted import public_catalog as restricted_catalog
+    return ok(request, restricted_catalog(), headers=PRIVATE_HEADERS)
+
+
 @router.post("/precheck/evaluate", dependencies=[Depends(_limit_evaluation)])
 def evaluate_anonymously(body: PrecheckInput, request: Request):
     from app.line_handoff import record_server_failure, record_server_result

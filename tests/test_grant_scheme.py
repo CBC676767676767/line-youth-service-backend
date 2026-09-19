@@ -197,3 +197,24 @@ def test_staff_scheme_scope_is_explicit_and_existing_accounts_unchanged(grant):
         with pytest.raises(ValueError, match="Scheme does not exist"):
             create_staff(db, grant.settings, "missing@example.test", "reviewer", scheme_id="missing")
         assert db.scalar(select(Account).where(Account.email == "missing@example.test")) is None
+
+def test_submission_refuses_a_tool_the_public_notice_excludes(grant):
+    """The entry page warns earlier; only the server sees every submission."""
+    case_id, tag = draft(grant, {**FORM, "tool": "CapCut Pro"})
+    response = grant.call("owner", "POST", f"/cases/{case_id}/submit", {"file_version_ids": []},
+                          key=str(uuid4()), etag=tag)
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "TOOL_NOT_ELIGIBLE"
+    # The refusal quotes the notice and says where the wording came from, so the
+    # applicant can check it rather than take the system's word for it.
+    quoted = " ".join(item["message"] for item in error["field_errors"])
+    assert "中國大陸（含港澳）" in quoted
+    assert "查核日期" in quoted
+    assert all(item["field"] == "tool" for item in error["field_errors"])
+
+    # A tool the notice does not name reaches the document check instead.
+    case_id, tag = draft(grant, {**FORM, "tool": "ChatGPT Plus"})
+    allowed = grant.call("owner", "POST", f"/cases/{case_id}/submit", {"file_version_ids": []},
+                         key=str(uuid4()), etag=tag)
+    assert allowed.json()["error"]["code"] == "REQUIRED_DOCUMENT_MISSING"

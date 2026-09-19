@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.access import case_filter, case_for
 from app.auth import Principal, current_principal
+from app.restricted import load_catalog, match_declared
 from app.common import ApiError, check_version, encode, etag, idem_finish, idem_start, ok
 from app.db import get_db, new_id, utcnow
 from app.files import file_metadata
@@ -447,6 +448,27 @@ def patch_case(case_id: str, body: DraftPatch, request: Request, db: DB, p: User
     return ok(request, _case_view(case, p, db=db), headers={"ETag": etag(case)})
 
 
+
+def _reject_excluded_tool(form_data: dict) -> None:
+    """Refuse a submission that names a tool the public notice excludes.
+
+    Enforced here rather than in the browser: the entry page warns earlier, but
+    only the server sees every submission. Matching is limited to the names the
+    notice lists, so this never blocks a tool on an inferred country or owner.
+    """
+    declared = str(form_data.get("tool") or "")
+    match = match_declared(declared)
+    if match is None:
+        return
+    catalog = load_catalog()
+    raise ApiError(422, "TOOL_NOT_ELIGIBLE",
+                   f"「{match.name}」屬於公告排除的項目，無法送出申請。",
+                   [{"field": "tool", "message": match.clause_text},
+                    {"field": "tool",
+                     "message": f"依據：{catalog.source_title}（查核日期 {catalog.checked_date}）"},
+                    {"field": "tool",
+                     "message": "若你認為這是誤判，請保留交易證明並洽承辦確認；本系統不自行認定廠商國別或資本來源。"}])
+
 @router.post("/cases/{case_id}/submit")
 def submit_case(case_id: str, body: SubmitCase, request: Request, db: DB, p: User,
                 if_match: VersionHeader = None):
@@ -461,6 +483,7 @@ def submit_case(case_id: str, body: SubmitCase, request: Request, db: DB, p: Use
     if case.schema_version != scheme.schema_version:
         raise ApiError(409, "SCHEMA_VERSION_CHANGED", "方案表單版本已更新。")
     _validate_form(scheme, case.form_data, draft=False)
+    _reject_excluded_tool(case.form_data)
     files = _files(db, case, body.file_version_ids)
     document_types = {db.get(File, item.file_id).document_type for item in files}
     missing = _required_documents(scheme, case.form_data) - document_types

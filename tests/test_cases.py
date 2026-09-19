@@ -563,3 +563,16 @@ def test_accepted_evidence_invalidates_an_earlier_review_conclusion(workflow):
                         "evidence_refs": corrected_refs},
                        etag=current.headers["etag"], key=str(uuid4()))
     assert allowed.status_code == 201, allowed.text
+
+def test_common_words_do_not_trip_the_exclusion_matcher():
+    """A word that merely contains an excluded name must not block a submission."""
+    from app.restricted import match_declared, scan_text
+    for safe in ["manuscript", "Winkler Studio", "Wheeling", "Poet AI", "ChatGPT Plus",
+                 "Perplexity Pro", "Notion AI"]:
+        assert match_declared(safe) is None, safe
+    for named in ["CapCut", "剪映", "Kling", "可靈", "美圖秀秀", "Manus", "Wink", "WHEE",
+                  "SenseAvatar", "poe.com", "GoingBus"]:
+        assert match_declared(named) is not None, named
+    # Receipt prose only reports names that are distinctive enough to rely on.
+    assert [entry.name for entry in scan_text("wink beauty salon receipt")] == []
+    assert [entry.name for entry in scan_text("INVOICE CapCut Pro NT$390")] == ["CapCut"]
