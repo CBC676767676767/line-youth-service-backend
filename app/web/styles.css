@@ -85,7 +85,11 @@ input::placeholder { color:#859289; font-size:13px; }
 .field input,.field select { max-width:100%; box-sizing:border-box; }
 /* A fieldset keeps an intrinsic min-width, so its contents cannot collapse with it. */
 .inset-section { border:0; background:#f5f7f2; margin:0 0 22px; padding:18px 16px 10px; border-radius:8px; min-width:0; }
-.inset-section legend { float:left; width:100%; padding:0 0 12px; font-size:14px; font-weight:600; }
+/* Not floated. A full-width float leaves no room beside it, and the grid below
+   establishes its own formatting context, so it shrank to zero width and wrapped
+   each CJK label to one character per line. The fieldset has no border, so a
+   plain block legend already sits where the float was trying to put it. */
+.inset-section legend { float:none; display:block; width:100%; padding:0 0 12px; font-size:14px; font-weight:600; }
 .inset-section .field { margin-bottom:8px; }
 .tool-results { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .tool-option { padding:7px 10px; background:#f1f5ef; border:1px solid #d9e3d8; color:var(--accent); border-radius:6px; font-size:12px; text-align:left; }
