@@ -29,6 +29,11 @@ app = ["web/*.html", "web/*.js", "web/*.css", "web/*.svg", "data/*.json", "data/
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Two suites import helpers from scripts/, which is not an installed package.
+# `python -m pytest` happens to put the working directory on sys.path and the
+# pytest console script does not, so without this the suite passes locally and
+# fails in CI.
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py312"
