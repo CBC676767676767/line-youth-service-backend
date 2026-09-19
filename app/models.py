@@ -110,6 +110,9 @@ class Case(Base):
     form_data: Mapped[dict] = mapped_column(JSON, default=dict)
     schema_version: Mapped[int] = mapped_column(default=1)
     current_revision_no: Mapped[int] = mapped_column(default=0)
+    # Bumped when accepted evidence changes. A review conclusion records the value
+    # it was reached against, so a stale PASS cannot gate a later decision.
+    evidence_revision_no: Mapped[int] = mapped_column(default=0)
     last_business_update_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
@@ -224,6 +227,7 @@ class ReviewItem(Base):
     evidence_refs: Mapped[list] = mapped_column(JSON, default=list)
     reviewed_by: Mapped[str | None] = mapped_column(ForeignKey("accounts.id"))
     reviewed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    reviewed_evidence_revision: Mapped[int] = mapped_column(default=0)
     __table_args__ = (UniqueConstraint("case_id", "criterion_code"),)
 
 

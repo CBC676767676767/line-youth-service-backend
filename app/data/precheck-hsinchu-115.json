@@ -1,0 +1,866 @@
+{
+  "input_version": "2",
+  "catalog_version": "public_2026_09_19",
+  "official_application_url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+  "rules": {
+    "version": "public_2026_09_19",
+    "status": "draft",
+    "valid_from": "2026-08-14",
+    "valid_until": "2026-11-30",
+    "source": {
+      "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+      "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+      "kind": "official"
+    },
+    "confirmed_by": null,
+    "confirmed_at": null,
+    "params": {
+      "purchase_date_from": "2026-04-02",
+      "purchase_date_until": "2026-10-31",
+      "birth_date_from": "1985-04-03",
+      "birth_date_until": "2010-04-02",
+      "residency": "hsinchu",
+      "restricted_channels": [
+        "agent",
+        "marketplace"
+      ],
+      "restrict_standalone_credits": true,
+      "subscription_min_months": null,
+      "subscription_max_months": null,
+      "subscription_month_semantics": null,
+      "application_types": [
+        {
+          "id": "standard",
+          "name": "一般青年",
+          "documents": []
+        },
+        {
+          "id": "specific",
+          "name": "特定對象（身分證明待確認）",
+          "documents": []
+        },
+        {
+          "id": "language",
+          "name": "文化語言保存者（認證證明待確認）",
+          "documents": []
+        }
+      ],
+      "base_documents": [
+        {
+          "doc_id": "D01",
+          "title": "身分證正反面",
+          "reason": "正式申辦應能辨識申請人資訊及設籍地址；自述與清晰照片均不代表已查證現行戶籍或文件真實。預檢不收證件。"
+        },
+        {
+          "doc_id": "D04",
+          "title": "申請人本人存摺封面",
+          "reason": "補助款須匯入申請人本人帳戶；父母、配偶或其他人代付不代表可用代付人帳戶領款。預檢不收銀行帳號。"
+        },
+        {
+          "doc_id": "D05",
+          "title": "申請人親筆簽名切結書",
+          "reason": "依官方範本準備及親筆簽名；勾選已準備僅為自述，不代表已收件或查證簽名。"
+        }
+      ],
+      "purchased_documents": [
+        {
+          "doc_id": "D02",
+          "title": "官方訂閱收據／憑證",
+          "reason": "須核對訂閱人姓名或可識別電子信箱、完整AI工具名稱、軟體公司、訂閱日期、訂閱期間或續訂日、原始費用與付款方式；尚未核對內容。"
+        },
+        {
+          "doc_id": "D03",
+          "title": "臺幣帳單／換算及繳款佐證",
+          "reason": "以實際臺幣帳單為基礎並提供相應繳款證明；外幣收據不能以當日匯率自行換成正式核銷金額。逐月交易應逐月準備。"
+        }
+      ],
+      "paid_by_other_documents": [
+        {
+          "doc_id": "D07_joint",
+          "title": "申請人與代付人共同切結書",
+          "reason": "依官方範本由申請人與父母、配偶或法定代理人親筆共同簽署；適用關係範圍仍需承辦確認，不代表已核准。"
+        },
+        {
+          "doc_id": "D07_relationship",
+          "title": "申請人與代付人的身分關係證明",
+          "reason": "準備足以證明親屬或法定代理關係的文件，內容尚未核對；不自行擴充成任何朋友代付都可適用。"
+        }
+      ],
+      "acceptance_date_from": "2026-04-02",
+      "acceptance_date_until": "2026-11-30",
+      "general_rate": "0.50",
+      "general_cap_twd": "3000",
+      "enhanced_rate": "0.90",
+      "enhanced_cap_twd": "6000",
+      "monthly_application_months": 1,
+      "annual_application_months": 2,
+      "qualification_categories": [
+        {
+          "id": "low_income",
+          "name": "低收入戶",
+          "kind": "specific"
+        },
+        {
+          "id": "lower_middle_income",
+          "name": "中低收入戶",
+          "kind": "specific"
+        },
+        {
+          "id": "sole_household_support",
+          "name": "獨立負擔家計者",
+          "kind": "specific"
+        },
+        {
+          "id": "disability",
+          "name": "身心障礙者",
+          "kind": "specific"
+        },
+        {
+          "id": "indigenous",
+          "name": "原住民",
+          "kind": "specific"
+        },
+        {
+          "id": "new_immigrant",
+          "name": "新住民",
+          "kind": "specific"
+        },
+        {
+          "id": "employment_act_24",
+          "name": "符合就業服務法第24條第1項各款所列情形",
+          "kind": "specific"
+        },
+        {
+          "id": "language_indigenous",
+          "name": "原住民族語言能力認證",
+          "kind": "language"
+        },
+        {
+          "id": "language_taiwanese",
+          "name": "臺灣台語語言能力認證",
+          "kind": "language"
+        },
+        {
+          "id": "language_hakka",
+          "name": "客語能力認證",
+          "kind": "language"
+        }
+      ]
+    }
+  },
+  "tools": [
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "category": "通用型",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI 訂閱方案",
+      "category": "通用型",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "category": "通用型",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "category": "通用型",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "category": "通用型",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "canva-ai",
+      "name": "Canva AI",
+      "category": "影像類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "adobe-firefly",
+      "name": "Adobe Firefly",
+      "category": "影像類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "adobe-ai-other",
+      "name": "其他 Adobe AI 創作工具",
+      "category": "影像類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "midjourney",
+      "name": "Midjourney",
+      "category": "影像類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "figma-ai",
+      "name": "Figma AI",
+      "category": "影像類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "copilot",
+      "name": "Microsoft Copilot",
+      "category": "辦公類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "copy-ai",
+      "name": "copy.ai",
+      "category": "辦公類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "notion-ai",
+      "name": "Notion AI",
+      "category": "辦公類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "jasper",
+      "name": "Jasper",
+      "category": "辦公類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "grammarly",
+      "name": "Grammarly",
+      "category": "學習類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "speak",
+      "name": "Speak",
+      "category": "學習類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "elicit",
+      "name": "Elicit",
+      "category": "學習類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "category": "其他類",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "listed_example",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": false,
+      "restriction_reason": "",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "capcut",
+      "name": "CapCut",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "kling",
+      "name": "Kling",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "meitu",
+      "name": "Meitu／美圖秀秀",
+      "category": "公告排除",
+      "aliases": [
+        "Meitu",
+        "美圖秀秀"
+      ],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "wink",
+      "name": "Wink",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "whee",
+      "name": "WHEE",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "senseavatar",
+      "name": "SenseAvatar",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    },
+    {
+      "id": "manus",
+      "name": "Manus",
+      "category": "公告排除",
+      "aliases": [],
+      "status": "draft",
+      "catalog_status": "excluded_by_notice",
+      "plans": [],
+      "domains": [],
+      "channels": [
+        "official"
+      ],
+      "restricted": true,
+      "restriction_reason": "依填答命中本計畫公告限制；這是補助範圍條件，不是資安風險認定，仍可更正填答或人工確認，不自動拒收。",
+      "source": {
+        "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+        "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+        "kind": "official"
+      },
+      "checked_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "valid_from": "2026-08-14",
+      "valid_until": "2026-11-30"
+    }
+  ],
+  "snapshot": {
+    "program_id": "hsinchu_ai_2026",
+    "snapshot_version": "public_2026_09_19",
+    "source_checked_date": "2026-09-19",
+    "timezone": "Asia/Taipei",
+    "source_type": "official_public_page",
+    "agency_approved": false,
+    "usage": "advisory_precheck",
+    "automatic_approval_enabled": false
+  },
+  "sources": [
+    {
+      "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+      "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+      "kind": "official"
+    },
+    {
+      "title": "臺南市政府研考會：新竹市AI領航青年數位工具補助更新公告轉知",
+      "url": "https://rdec.tainan.gov.tw/News_Content.aspx?n=17460&s=8831950&sms=17958",
+      "kind": "official"
+    }
+  ],
+  "pending_confirmations": [
+    {
+      "id": "PC01",
+      "title": "月費累積與跨月",
+      "detail": "釐清連續月份累積與訂閱期間不得跨月文字如何同時適用；目前支援逐月備件，累積情境轉人工。",
+      "rule_ids": [
+        "R10"
+      ]
+    },
+    {
+      "id": "PC02",
+      "title": "申請期限起算",
+      "detail": "購買後一或兩個月的正式起算、月末與休假日處理待確認；不能替換成30或60日或延後年度截止。",
+      "rule_ids": [
+        "R08",
+        "R09"
+      ]
+    },
+    {
+      "id": "PC03",
+      "title": "代付關係及證明",
+      "detail": "主文法定代理人與審核段落父母、配偶、法定代理人範圍不一致，具體關係及證明要求待確認。",
+      "rule_ids": [
+        "D07"
+      ]
+    },
+    {
+      "id": "PC04",
+      "title": "非信用卡付款",
+      "detail": "申辦欄位列信用卡末四碼與姓名照片；非信用卡付款替代佐證待承辦確認，預檢不自行豁免。",
+      "rule_ids": [
+        "D03"
+      ]
+    },
+    {
+      "id": "PC05",
+      "title": "語言認證適用",
+      "detail": "公告列三類本土語言認證，但適用證照細目、級別及期限未確認；不自行增加門檻。",
+      "rule_ids": [
+        "R05",
+        "D06"
+      ]
+    },
+    {
+      "id": "PC06",
+      "title": "金額認列及捨入",
+      "detail": "小數捨入、手續費、混合品項、額度加購拆分及年費費用認列待確認；僅提供Decimal條件式試算。",
+      "rule_ids": [
+        "R06",
+        "R14"
+      ]
+    },
+    {
+      "id": "PC07",
+      "title": "一次購買與多工具",
+      "detail": "一案多工具、月費累積與每年一次及一次AI工具購買限制如何共同適用待確認。",
+      "rule_ids": [
+        "R10",
+        "R11"
+      ]
+    },
+    {
+      "id": "PC08",
+      "title": "未列工具及通路例外",
+      "detail": "未知工具、未知方案及App Store、Google Play等非官網通路例外待確認；列名不是所有方案白名單。",
+      "rule_ids": [
+        "R12",
+        "R13"
+      ]
+    },
+    {
+      "id": "PC09",
+      "title": "預算及跨機關資料",
+      "detail": "無即時額度或跨機關補助資料，不能宣稱保留名額、仍有預算或已排除重複補助。",
+      "rule_ids": [
+        "R08",
+        "R11"
+      ]
+    },
+    {
+      "id": "PC10",
+      "title": "正式補件期限",
+      "detail": "須有效機關通知與政府辦公日曆，不能以預檢修正任務設定正式10工作天倒數或自動行政處分。",
+      "rule_ids": [
+        "R09"
+      ]
+    }
+  ]
+}

@@ -4,6 +4,8 @@ import json
 import os
 import secrets
 from pathlib import Path
+from urllib.parse import urlsplit
+from typing import Literal
 
 from cryptography.fernet import Fernet
 from pydantic import model_validator
@@ -46,6 +48,10 @@ class Settings(BaseSettings):
     line_channel_secret: str = ""
     line_channel_access_token: str = ""
     line_destination_user_id: str = ""
+    line_bot_enabled: bool = False
+    line_reply_mode: Literal["disabled", "fake", "live"] = "disabled"
+    line_public_precheck_url: str = ""
+    line_simulator_enabled: bool = False
     storage_dir: Path = Path("var/files")
     scan_backend: str = "development"
     clamav_host: str = "127.0.0.1"
@@ -58,9 +64,44 @@ class Settings(BaseSettings):
     worker_poll_seconds: float = 2.0
     export_ttl_seconds: int = 86400
     auto_create_schema: bool = False
+    precheck_rules_path: Path | None = Path(__file__).parent / "data" / "precheck-hsinchu-115.json"
+    precheck_demo_enabled: bool = True
+    demo_fixed_otp: str = ""
+    precheck_official_application_url: str = ""
 
     @model_validator(mode="after")
     def validate_environment(self):
+        if self.demo_fixed_otp:
+            # A predictable one-time code is a demo convenience and an authentication
+            # bypass. It must never be reachable from a production configuration.
+            if self.app_env != "development":
+                raise ValueError("demo_fixed_otp is only allowed when app_env is development")
+            if self.mail_backend != "spool":
+                raise ValueError("demo_fixed_otp requires the spool mail backend")
+            if not (len(self.demo_fixed_otp) == 6 and self.demo_fixed_otp.isdigit()):
+                raise ValueError("demo_fixed_otp must be exactly six digits")
+        if self.line_bot_enabled and self.line_reply_mode == "live":
+            credentials = (self.line_channel_access_token, self.line_channel_secret,
+                           self.line_messaging_channel_id, self.line_destination_user_id)
+            if any(not value or any(char.isspace() or ord(char) < 32 for char in value)
+                   for value in credentials):
+                raise ValueError("Live LINE replies require channel token, secret, messaging channel ID and destination")
+            if (len(self.line_channel_access_token) > 4096
+                    or any(ord(char) > 126 for char in self.line_channel_access_token)):
+                raise ValueError("LINE channel access token has an unsupported format")
+            url = urlsplit(self.line_public_precheck_url)
+            if (url.scheme != "https" or not url.hostname or url.username is not None
+                    or url.password is not None or len(self.line_public_precheck_url) > 1900
+                    or "\\" in self.line_public_precheck_url
+                    or any(char.isspace() or ord(char) < 32 for char in self.line_public_precheck_url)):
+                raise ValueError("Live LINE replies require a configured HTTPS precheck URL without credentials")
+            _ = url.port
+        if self.precheck_official_application_url:
+            url = urlsplit(self.precheck_official_application_url)
+            if (url.scheme != "https" or not url.hostname or url.username is not None
+                    or url.password is not None or any(c.isspace() for c in self.precheck_official_application_url)):
+                raise ValueError("Precheck application URL must be a configured HTTPS URL without credentials")
+            _ = url.port
         if self.app_env not in {"development", "test", "production"}:
             raise ValueError("app_env must be development, test, or production")
         if self.app_env == "production":

@@ -19,7 +19,9 @@ npm run build
 
 先完成根目錄 README 的 Python／DB 初始化、遷移、`seed-grant`，再開 FastAPI，從同源 `/` 和 `/admin/` 操作。`dist/` 是建置產物，不提交到 Git；Docker 和 CI 都從鎖檔重新建置。
 
-開發時 `npm run dev` 將 `/api` 代理至 `127.0.0.1:8000`；後端需顯式允許 `http://127.0.0.1:5173` Origin。正式環境走同源 HTTPS 與 Secure Cookie。
+開發時 `npm run dev` 將 `/api`、`/precheck` 與 `/static` 代理至 `127.0.0.1:8000`；後端需顯式允許 `http://127.0.0.1:5173` Origin。正式環境走同源 HTTPS 與 Secure Cookie。
+
+`/precheck` 提供匿名規則預檢、條件式金額試算與登入後保存；民眾首頁連入此功能。`src/components/PrecheckSummary.tsx` 在民眾與承辦案件頁使用同一個受授權 API 顯示最新快照與差異，不更改案件或財務狀態。
 
 LIFF 的公開識別碼放 `.env.local` 中的 `VITE_LIFF_ID`，變更後重新建置；不放任何密鑰。設定方式見 [部署說明](../docs/web-deployment.md)。只在明確按下登入／連結時取得 ID token，直接送同源後端驗證，不信任前端 profile、不存 web storage。
 

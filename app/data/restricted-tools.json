@@ -1,0 +1,121 @@
+{
+  "version": "public_2026_09_20",
+  "source": {
+    "title": "新竹市數位申辦平台：115年度AI領航青年數位工具補助計畫申請（公開網頁）",
+    "url": "https://dgservice.hccg.gov.tw/serviceNotice.do?id=1323&rule=guest",
+    "kind": "official",
+    "checked_date": "2026-09-20",
+    "timezone": "Asia/Taipei"
+  },
+  "notice": "依公開網頁整理，未經機關逐項確認。名單只涵蓋公告具名的工具與平台；公告的地區條款範圍大於這份名單，未列名不等於符合補助資格。",
+  "clauses": {
+    "region": {
+      "id": "R-CN",
+      "text": "凡屬中國大陸（含港澳）地區開發或營運之AI工具、軟體及相關服務，均不予補助",
+      "note": "判準是開發或營運地區，不是出資來源。系統只比對公告具名的工具，不自行判斷任何未列名廠商的資本結構。"
+    },
+    "aggregator": {
+      "id": "R-AGG",
+      "text": "透過 Poe.com、GoingBus 等集合式AI平台或代購網站購買者，因涉及非合規軟體綑綁銷售，不屬本計畫補助範圍"
+    },
+    "credits": {
+      "id": "R-CREDIT",
+      "text": "本計畫不補助以預付儲值、購買使用額度（Credit）、點數、代幣（Token）或API額度等方式取得之AI服務"
+    }
+  },
+  "entries": [
+    {
+      "id": "capcut",
+      "name": "CapCut",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["capcut", "cap cut", "剪映", "剪映專業版"],
+      "distinctive": true,
+      "note": "公告具名。"
+    },
+    {
+      "id": "kling",
+      "name": "Kling",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["kling", "kling ai", "klingai", "可靈", "可灵"],
+      "distinctive": true,
+      "note": "公告具名。"
+    },
+    {
+      "id": "meitu",
+      "name": "Meitu（美圖秀秀）",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["meitu", "meitu xiuxiu", "美圖秀秀", "美图秀秀", "美圖"],
+      "distinctive": true,
+      "note": "公告具名。"
+    },
+    {
+      "id": "wink",
+      "name": "Wink",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["wink"],
+      "distinctive": false,
+      "note": "公告具名。字詞常見，收據文字命中只提示待確認，不作為單獨的擋件依據。"
+    },
+    {
+      "id": "whee",
+      "name": "WHEE",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["whee"],
+      "distinctive": false,
+      "note": "公告具名。字詞常見，收據文字命中只提示待確認。"
+    },
+    {
+      "id": "senseavatar",
+      "name": "SenseAvatar",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["senseavatar", "sense avatar", "商湯", "sensetime"],
+      "distinctive": true,
+      "note": "公告具名。"
+    },
+    {
+      "id": "manus",
+      "name": "Manus",
+      "clause": "R-CN",
+      "kind": "tool",
+      "aliases": ["manus", "manus ai", "manus.im"],
+      "distinctive": false,
+      "note": "公告具名。字詞也是拉丁文常用字，收據文字命中只提示待確認。"
+    },
+    {
+      "id": "poe",
+      "name": "Poe.com",
+      "clause": "R-AGG",
+      "kind": "aggregator",
+      "aliases": ["poe.com", "poe ai", "quora poe"],
+      "distinctive": true,
+      "note": "公告具名的集合式平台。單獨的 poe 字串不列入比對，避免誤判。"
+    },
+    {
+      "id": "goingbus",
+      "name": "GoingBus",
+      "clause": "R-AGG",
+      "kind": "aggregator",
+      "aliases": ["goingbus", "going bus", "goingbus.com"],
+      "distinctive": true,
+      "note": "公告具名的集合式平台。"
+    }
+  ],
+  "pending_confirmations": [
+    {
+      "id": "PCX1",
+      "title": "地區條款的完整適用範圍",
+      "detail": "公告以開發或營運地區為準，未提供完整廠商清單。系統只比對具名項目；其餘一律交由承辦認定，不由程式推論廠商國別或資本來源。"
+    },
+    {
+      "id": "PCX2",
+      "title": "翻譯軟體的涵蓋範圍",
+      "detail": "公告另述其他由中國（含港澳）開發之AI翻譯軟體不予補助，但未列舉名稱，無法轉成可比對的名單。"
+    }
+  ]
+}

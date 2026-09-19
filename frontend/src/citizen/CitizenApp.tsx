@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -54,7 +54,41 @@ const navigation = [
   { id: "ocr", title: "證件與收據辨識", icon: FileSearch },
   { id: "safety", title: "AI 安全學堂", icon: ShieldCheck },
 ] as const;
+const unavailableLineResult = "這個 LINE 結果連結已失效或無法由目前帳號開啟。請清除連結後重新開始，或返回 LINE 重新完成預檢。";
+function lineResultParameters() {
+  const direct = new URLSearchParams(location.search);
+  const state = direct.get("liff.state") || "";
+  const question = state.indexOf("?");
+  const nested = new URLSearchParams(question >= 0 ? state.slice(question + 1).split("#")[0] : "");
+  return { direct, nested };
+}
+function readLineResultHint(): { token: string | null; invalid: boolean } {
+  const { direct, nested } = lineResultParameters();
+  const hints = [...direct.getAll("line_result"), ...nested.getAll("line_result")];
+  if (!hints.length) return { token: null, invalid: false };
+  // This opaque value is only a routing hint. The authenticated API resolves ownership.
+  const valid = hints.every((hint) => /^[A-Za-z0-9_-]{32}$/.test(hint)) && new Set(hints).size === 1;
+  return { token: valid ? hints[0] : null, invalid: !valid };
+}
+function clearLineResultUrl() {
+  const url = new URL(location.href);
+  url.searchParams.delete("line_result");
+  const state = url.searchParams.get("liff.state");
+  if (state?.includes("?")) {
+    const question = state.indexOf("?");
+    const hash = state.indexOf("#", question);
+    const nested = new URLSearchParams(state.slice(question + 1, hash < 0 ? undefined : hash));
+    if (nested.has("line_result")) {
+      nested.delete("line_result");
+      const query = nested.toString();
+      url.searchParams.set("liff.state", state.slice(0, question) + (query ? `?${query}` : "") + (hash < 0 ? "" : state.slice(hash)));
+    }
+  }
+  history.replaceState(history.state, "", `${url.pathname}${url.search}${url.hash}`);
+}
 function initialView(): View {
+  const result = readLineResultHint();
+  if (result.token || result.invalid) return "tracking";
   const entry = readLineEntry();
   if (entry.action) return entry.action;
   if (/^\/(cases|tasks)\//.test(location.pathname)) return "tracking";
@@ -65,6 +99,16 @@ export default function CitizenApp() {
   const [view, setView] = useState<View>(initialView);
   const [me, setMe] = useState<Me | null>(null);
   const meRef = useRef<Me | null>(null);
+  // Keep the owner workspace mounted during reauthentication, only in memory.
+  const [workspaceOwner, setWorkspaceOwner] = useState<Me | null>(null);
+  const ownerRef = useRef<Me | null>(null);
+  const sessionEpoch = useRef(0);
+  const active = useRef(true);
+  const refreshing = useRef(false);
+  const [sessionWarning, setSessionWarning] = useState("");
+  const [checkingSession, setCheckingSession] = useState(false);
+  const unsavedRef = useRef(false);
+  const [leaveAction, setLeaveAction] = useState<{ run: () => void } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [about, setAbout] = useState(false);
@@ -77,8 +121,15 @@ export default function CitizenApp() {
     { id: string; text?: string; status?: string }[] | null
   >(null);
   const [lineBusy, setLineBusy] = useState(false);
+  const [lineResultHint, setLineResultHint] = useState(readLineResultHint);
+  const [lineResultLoading, setLineResultLoading] = useState(false);
+  const [lineResultRetry, setLineResultRetry] = useState(0);
+  const [lineResultRetryable, setLineResultRetryable] = useState(false);
+  const [lineResultNotice, setLineResultNotice] = useState("");
+  const [resolvedLineCase, setResolvedLineCase] = useState<{ accountId: string; caseId: string } | null>(null);
   function acceptSession(next: Me | null) {
-    const previous = meRef.current;
+    const previous = ownerRef.current;
+    sessionEpoch.current += 1;
     if (
       previous?.account.id !== next?.account.id ||
       previous?.roles.join() !== next?.roles.join()
@@ -86,49 +137,130 @@ export default function CitizenApp() {
       setGeneration((n) => n + 1);
       setSelectedId(undefined);
       setNotifications(null);
+      unsavedRef.current = false;
+      setLeaveAction(null);
+      setResolvedLineCase(null);
+      setLineResultNotice("");
     }
+    ownerRef.current = next?.roles.includes("applicant") ? next : null;
+    setWorkspaceOwner(ownerRef.current);
     meRef.current = next;
     setMe(next);
     setCsrf(next?.csrf_token);
+    setSessionWarning("");
   }
-  useEffect(() => {
-    let active = true;
-    async function refresh() {
-      try {
-        const next = await api<Me>("/me");
-        if (active) {
-          acceptSession(next);
-          setError("");
-        }
-      } catch (e) {
-        if (active) {
-          acceptSession(null);
-          if (!(e instanceof ApiError && e.status === 401))
-            setError(errorMessage(e));
-        }
-      } finally {
-        if (active) setLoading(false);
+  const expireSession = useCallback(() => {
+    if (!active.current) return;
+    sessionEpoch.current += 1;
+    meRef.current = null;
+    setMe(null);
+    setCsrf(undefined);
+    setNotifications(null);
+    setLeaveAction(null);
+    if (ownerRef.current) {
+      setSessionWarning("登入已失效。尚未儲存的內容暫留在本頁記憶體，重新登入同一帳號後可繼續；重新整理或關閉本頁會清除這些內容。");
+    }
+  }, []);
+  const refreshSession = useCallback(async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
+    setCheckingSession(true);
+    const epoch = sessionEpoch.current;
+    try {
+      const next = await api<Me>("/me");
+      if (active.current && epoch === sessionEpoch.current) acceptSession(next);
+      else setCsrf(meRef.current?.csrf_token);
+    } catch (e) {
+      // api announces genuine 401 separately. A network/server error is not logout.
+      if (active.current && epoch === sessionEpoch.current && !(e instanceof ApiError && e.status === 401)) {
+        setSessionWarning("暫時無法確認登入狀態，已保留本頁內容。請重試連線後再儲存或送件。");
+      }
+    } finally {
+      refreshing.current = false;
+      if (active.current) {
+        setLoading(false);
+        setCheckingSession(false);
       }
     }
-    const expire = () => {
-      if (active) acceptSession(null);
-    };
-    void refresh();
-    window.addEventListener("focus", refresh);
-    window.addEventListener("youth:session-expired", expire);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("youth:session-expired", expire);
-    };
   }, []);
+  useEffect(() => {
+    active.current = true;
+    void refreshSession();
+    window.addEventListener("focus", refreshSession);
+    window.addEventListener("youth:session-expired", expireSession);
+    return () => {
+      active.current = false;
+      window.removeEventListener("focus", refreshSession);
+      window.removeEventListener("youth:session-expired", expireSession);
+    };
+  }, [refreshSession, expireSession]);
   useEffect(() => {
     if (lineContext) void initLine().then(setLineState);
   }, [lineContext]);
-  function navigate(next: View) {
-    setError("");
-    setView(next);
-    window.scrollTo({ top: 0 });
+  const accountId = me?.account.id;
+  const accountRoles = me?.roles.join() || "";
+  useEffect(() => {
+    if (lineResultHint.invalid) clearLineResultUrl();
+    if (!lineResultHint.token || !accountId || !meRef.current?.roles.includes("applicant")) {
+      setLineResultLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const owner = accountId;
+    setLineResultLoading(true);
+    setLineResultRetryable(false);
+    setLineResultNotice("");
+    void api<{ case_id: string; snapshot_id: string }>(`/line/results/${encodeURIComponent(lineResultHint.token)}`, { signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted || meRef.current?.account.id !== owner || !meRef.current.roles.includes("applicant")) return;
+        if (typeof result.case_id !== "string" || !result.case_id || result.case_id.length > 128) {
+          throw new ApiError(502, "INVALID_RESPONSE", "結果暫時無法讀取。");
+        }
+        setLineResultHint({ token: null, invalid: false });
+        clearLineResultUrl();
+        if (unsavedRef.current) {
+          setResolvedLineCase({ accountId: owner, caseId: result.case_id });
+          setLineResultNotice("已確認 LINE 指定的案件。請先儲存本頁填答，再開啟該案件。");
+        } else {
+          setSelectedId(result.case_id);
+          setView("tracking");
+          setLineResultNotice("已開啟目前登入帳號可存取的 LINE 預檢案件。");
+        }
+      })
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted || meRef.current?.account.id !== owner) return;
+        if (cause instanceof ApiError && cause.status === 401) return;
+        if (cause instanceof ApiError && [403, 404, 410].includes(cause.status)) {
+          setLineResultHint({ token: null, invalid: true });
+          clearLineResultUrl();
+          setLineResultNotice(unavailableLineResult);
+        } else {
+          setLineResultRetryable(true);
+          setLineResultNotice("暫時無法讀取 LINE 結果，尚未切換案件。請重試連線。");
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLineResultLoading(false); });
+    return () => controller.abort();
+  }, [accountId, accountRoles, lineResultHint.token, lineResultHint.invalid, lineResultRetry]);
+  const reportUnsaved = useCallback((value: boolean) => { unsavedRef.current = value; }, []);
+  function requestLeave(run: () => void) {
+    if (unsavedRef.current) {
+      setLeaveAction({ run });
+      window.scrollTo({ top: 0 });
+    }
+    else run();
+  }
+  function navigate(next: View, completed = false) {
+    if (next === view) return;
+    const run = () => {
+      unsavedRef.current = false;
+      setLeaveAction(null);
+      setError("");
+      setView(next);
+      window.scrollTo({ top: 0 });
+    };
+    if (completed) run();
+    else requestLeave(run);
   }
   function enterLine(action: LineAction) {
     if (hasLiffConfiguration()) {
@@ -143,7 +275,7 @@ export default function CitizenApp() {
     try {
       await api("/auth/logout", { method: "POST" });
       acceptSession(null);
-      navigate("home");
+      navigate("home", true);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -200,6 +332,9 @@ export default function CitizenApp() {
           </div>
         </button>
         <nav aria-label="民眾服務">
+          <a className="precheck-nav-entry" href="/precheck">
+            <FileSearch size={19} /> 補助預檢
+          </a>
           {navigation.map((n) => (
             <button
               key={n.id}
@@ -274,7 +409,7 @@ export default function CitizenApp() {
                 <span className="account-email">
                   {me.account.email || "已登入"}
                 </span>
-                <button className="text-btn" onClick={logout}>
+                <button className="text-btn" onClick={() => requestLeave(() => { void logout(); })}>
                   <LogOut size={16} /> 登出
                 </button>
               </>
@@ -286,6 +421,9 @@ export default function CitizenApp() {
           </div>
         </header>
         <div className="mobile-navigation">
+          <a className="precheck-mobile-entry" href="/precheck">
+            <FileSearch size={16} /> 補助預檢
+          </a>
           {navigation
             .filter((n) =>
               ["home", "apply", "tracking", "safety"].includes(n.id),
@@ -302,6 +440,48 @@ export default function CitizenApp() {
             ))}
         </div>
         <main>
+          {(lineResultHint.token || lineResultHint.invalid || lineResultNotice) && (
+            <section className="notice" role="status" aria-label="LINE 結果連結">
+              <p>{lineResultHint.invalid ? unavailableLineResult
+                : lineResultLoading ? "正在確認這個 LINE 結果與目前登入帳號…"
+                : lineResultNotice || "請先登入，再由服務確認這個 LINE 結果所屬的案件。連結本身不代表已登入或已完成身分查證。"}</p>
+              {lineResultRetryable && applicant && <button className="btn small" disabled={lineResultLoading} onClick={() => setLineResultRetry((value) => value + 1)}>重試讀取 LINE 結果</button>}
+              {resolvedLineCase && resolvedLineCase.accountId === me?.account.id && <button className="btn small" onClick={() => requestLeave(() => {
+                if (meRef.current?.account.id !== resolvedLineCase.accountId) return;
+                setSelectedId(resolvedLineCase.caseId);
+                setView("tracking");
+                setResolvedLineCase(null);
+                setLineResultNotice("已開啟目前登入帳號可存取的 LINE 預檢案件。");
+              })}>開啟 LINE 指定案件</button>}
+              {lineResultHint.invalid && <button className="btn small" onClick={() => requestLeave(() => {
+                clearLineResultUrl();
+                setLineResultHint({ token: null, invalid: false });
+                setLineResultNotice("");
+                setLineResultRetryable(false);
+                setResolvedLineCase(null);
+                setSelectedId(undefined);
+                setView("home");
+              })}>清除連結並重新開始</button>}
+            </section>
+          )}
+          {sessionWarning && (
+            <section className="notice warning" role="status">
+              <p>{sessionWarning}</p>
+              <button className="btn small" disabled={checkingSession} onClick={() => void refreshSession()}>
+                {checkingSession ? "正在確認…" : "重新確認登入狀態"}
+              </button>
+            </section>
+          )}
+          {leaveAction && (
+            <section className="card navigation-confirmation" role="alertdialog" aria-labelledby="leave-title" aria-describedby="leave-description">
+              <h2 id="leave-title">離開前，先確認尚未完成的操作</h2>
+              <p id="leave-description">這一頁有尚未儲存的填答或等待確認的送件。離開會清除本頁內容；已保存的草稿與伺服器收件紀錄仍會保留。</p>
+              <div className="button-row">
+                <button className="btn primary" onClick={() => setLeaveAction(null)}>留在本頁</button>
+                <button className="btn" onClick={() => { const next = leaveAction; setLeaveAction(null); unsavedRef.current = false; next.run(); }}>捨棄本頁未保存內容並離開</button>
+              </div>
+            </section>
+          )}
           {error && (
             <p className="notice error" role="alert">
               {error}
@@ -364,6 +544,9 @@ export default function CitizenApp() {
                     每一步清楚完成，讓青年與承辦都更省心。
                   </p>
                   <div className="button-row">
+                    <a className="btn" href="/precheck">
+                      先做補助預檢 <FileSearch size={17} />
+                    </a>
                     <button
                       className="btn primary"
                       onClick={() => navigate("line")}
@@ -374,6 +557,10 @@ export default function CitizenApp() {
                       直接線上申請
                     </button>
                   </div>
+                  <p className="precheck-entry-note">
+                    預檢可匿名使用，先了解工具、通路與需要準備的資料。
+                    自填結果尚未核對文件，不等於正式送件或核定。
+                  </p>
                 </div>
                 <div className="hero-journey">
                   <span className="journey-leaf">
@@ -475,8 +662,7 @@ export default function CitizenApp() {
               {reader === "identity" ? <IdentityOCR /> : <OcrLab />}
             </>
           )}
-          {requiresAccount &&
-            (loading ? (
+          {requiresAccount && (loading ? (
               <p role="status">正在確認登入狀態…</p>
             ) : !me ? (
               <EmailLogin onLogin={acceptSession} />
@@ -490,28 +676,35 @@ export default function CitizenApp() {
                   前往管理後台
                 </a>
               </section>
-            ) : view === "apply" ? (
+            ) : null)}
+          {requiresAccount && workspaceOwner && (
+            <div hidden={!applicant || me?.account.id !== workspaceOwner.account.id}>
+            {view === "apply" ? (
               <ApplicationForm
                 key={`${generation}-${selectedId || "new"}`}
-                me={me}
+                me={workspaceOwner}
                 caseId={selectedId}
+                onUnsavedChange={reportUnsaved}
                 onSubmitted={(id) => {
                   setSelectedId(id);
-                  navigate("tracking");
+                  navigate("tracking", true);
                 }}
-                onSafety={() => navigate("safety")}
+                onSafety={() => navigate("safety", true)}
               />
             ) : (
               <CaseTracking
                 key={`${generation}-${view}`}
                 selectedId={selectedId}
                 supplementOnly={view === "supplement"}
+                onUnsavedChange={reportUnsaved}
                 onEdit={(id) => {
                   setSelectedId(id);
                   navigate("apply");
                 }}
               />
-            ))}
+            )}
+            </div>
+          )}
         </main>
         <footer>
           <span>竹青通 · 青年 AI 補助服務</span>

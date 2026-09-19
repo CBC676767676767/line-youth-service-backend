@@ -1,0 +1,25 @@
+{
+	admin off
+}
+
+# Staff portal edge. It runs on its own host and its own public address, and it
+# reverse proxies to the application host across the private subnet. A VPC rule
+# allows this address and nothing else to reach the application port.
+{$YOUTH_ADMIN_DOMAIN} {
+	encode zstd gzip
+	# Access logging is intentionally absent: URLs can contain one-time handoffs.
+
+	# Only the staff entry, its build assets and the API it calls. Everything
+	# else -- the citizen entry, the precheck pages, developer documentation,
+	# health probes, the simulator -- answers 404 here, so this address carries
+	# no public application surface at all.
+	@portal path /admin /admin/ /admin/* /assets/* /ocr/* /favicon.ico /api/v1/*
+	handle @portal {
+		reverse_proxy {$YOUTH_APP_INTERNAL}:8000 {
+			header_up X-Forwarded-Host {host}
+		}
+	}
+	handle {
+		respond 404
+	}
+}

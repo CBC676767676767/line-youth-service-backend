@@ -1,0 +1,13 @@
+{
+	admin off
+}
+
+{$YOUTH_DOMAIN} {
+	encode zstd gzip
+	# Access logging is intentionally absent: URLs can contain one-time handoffs.
+	# The staff portal is published from its own host and address. Serving its
+	# login shell here too would put that surface back on the public entry.
+	@private path /admin /admin/* /line-simulator /line-simulator/* /api/v1/line/simulator/* /docs /docs/* /redoc /openapi.json /health/*
+	respond @private 404
+	reverse_proxy api:8000
+}

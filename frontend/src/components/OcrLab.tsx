@@ -6,9 +6,12 @@ export type OcrLabProps = {
   onText?: (text: string) => void;
   /** Invoked only when the user clicks the explicit candidate-use button. */
   onRecognized?: (document: RecognizedDocument) => void;
+  /** Fires as soon as text is read, before any decision to use it. Only for
+   *  checking the reading against the published exclusions; it imports nothing. */
+  onScanned?: (text: string) => void;
 };
 
-export default function OcrLab({ onText, onRecognized }: OcrLabProps) {
+export default function OcrLab({ onText, onRecognized, onScanned }: OcrLabProps) {
   const id = useId();
   const [prepared, setPrepared] = useState<PreparedImage | null>(null);
   const [fileName, setFileName] = useState('');
@@ -66,6 +69,7 @@ export default function OcrLab({ onText, onRecognized }: OcrLabProps) {
       }, aborter.signal);
       if (job !== generation.current) return;
       setText(result.text); setHasResult(true); setPhase('done');
+      if (result.text) onScanned?.(result.text);
       if (!result.text) setError('辨識完成，但沒有找到文字。請確認方向、光線與字體大小，或換一張圖片。');
     } catch (cause) {
       if (job !== generation.current) return;

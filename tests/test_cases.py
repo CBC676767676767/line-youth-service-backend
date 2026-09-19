@@ -378,6 +378,48 @@ def test_allowed_actions_follow_read_only_access_and_withdrawal_policy(workflow)
     assert withdrawn.status_code == 409
 
 
+@pytest.mark.parametrize(("status", "action"), [
+    ("UNDER_REVIEW", "create_decision"), ("DECIDED", "close_case"),
+])
+def test_supervisor_actions_require_supervisor_scope_for_the_selected_case(workflow, status, action):
+    env = workflow
+    case_id = review_case(env)
+    with env.factory() as db:
+        case = db.get(Case, case_id)
+        case.assigned_to = "reviewer"
+        case.status = status
+        reviewer = db.scalar(select(RoleGrant).where(RoleGrant.account_id == "reviewer"))
+        reviewer.scope_type, reviewer.scope_id = "SCHEME", case.scheme_id
+        db.add(RoleGrant(account_id="reviewer", role="supervisor", scope_type="SCHEME",
+                         scope_id="other-scheme"))
+        db.commit()
+
+    detail = env.call("reviewer", "GET", f"/staff/cases/{case_id}").json()["data"]
+    listed = env.call("reviewer", "GET", "/staff/cases").json()["data"]["items"]
+    assert action not in detail["allowed_actions"]
+    assert action not in next(item for item in listed if item["id"] == case_id)["allowed_actions"]
+    if status == "UNDER_REVIEW":
+        assert {"create_task", "review_case"} <= set(detail["allowed_actions"])
+        body = {"outcome": "APPROVED", "reason": "Scoped action regression",
+                "rule_version_id": env.rule_id,
+                "evidence_refs": [{"case_revision_id": detail["revisions"][0]["id"],
+                                   "rule_version_id": env.rule_id}]}
+        path = f"/staff/cases/{case_id}/decisions"
+    else:
+        body = {"completion_note": "Scoped action regression"}
+        path = f"/staff/cases/{case_id}/close"
+    denied = env.call("reviewer", "POST", path, body, etag=detail["etag"], key=str(uuid4()))
+    assert denied.status_code == 404
+
+    with env.factory() as db:
+        db.add(RoleGrant(account_id="reviewer", role="supervisor", scope_type="CASE", scope_id=case_id))
+        db.commit()
+    detail = env.call("reviewer", "GET", f"/staff/cases/{case_id}").json()["data"]
+    listed = env.call("reviewer", "GET", "/staff/cases").json()["data"]["items"]
+    assert action in detail["allowed_actions"]
+    assert action in next(item for item in listed if item["id"] == case_id)["allowed_actions"]
+
+
 def test_explicit_accepted_replacement_unblocks_rejected_original(workflow):
     env = workflow
     case_id, _ = new_draft(env)
@@ -465,3 +507,72 @@ def test_correction_preserves_original_and_withdrawal_cancels_open_tasks(workflo
         assert db.get(Task, task["id"]).status == "CANCELLED"
         assert db.scalar(select(NotificationIntent).where(NotificationIntent.task_id == task["id"],
                                                           NotificationIntent.purpose == "TASK_CREATED")).status == "CANCELLED"
+
+
+def accept_supplement(env, case_id, title):
+    """Run one supplement round to completion and return its accepted file version."""
+    task = new_task(env, case_id)
+    intent = upload(env, case_id, task["id"])
+    submission = env.call("owner", "POST", f"/tasks/{task['id']}/submissions",
+                          {"task_revision": task["task_revision"],
+                           "file_version_ids": [intent["file_version_id"]]},
+                          etag=task["etag"], key=str(uuid4()))
+    assert submission.status_code == 201, submission.text
+    process_scans(env.factory, env.settings)
+    accepted = env.call("supervisor", "POST", f"/staff/tasks/{task['id']}/accept",
+                        {"submission_id": submission.json()["data"]["receipt"]["submission_id"],
+                         "review_note": title},
+                        etag=submission.headers["etag"])
+    assert accepted.status_code == 200, accepted.text
+    return intent["file_version_id"]
+
+
+def test_accepted_evidence_invalidates_an_earlier_review_conclusion(workflow):
+    """A conclusion reached before newly accepted evidence must not gate a decision."""
+    env = workflow
+    case_id = review_case(env)
+    original = accept_supplement(env, case_id, "原始付款證明")
+
+    items = env.call("supervisor", "GET", f"/staff/cases/{case_id}/review-items").json()["data"]["items"]
+    refs = [{"file_version_id": original, "rule_version_id": env.rule_id, "page_no": 1}]
+    passed = env.call("supervisor", "PATCH", f"/staff/cases/{case_id}/review-items/{items[0]['id']}",
+                      {"result": "PASS", "internal_note": "依原收據金額核對", "evidence_refs": refs},
+                      etag=items[0]["etag"])
+    assert passed.status_code == 200, passed.text
+
+    # The applicant then corrects the amount through a second supplement.
+    corrected = accept_supplement(env, case_id, "更正後金額")
+    corrected_refs = [{"file_version_id": corrected, "rule_version_id": env.rule_id, "page_no": 1}]
+
+    current = env.call("supervisor", "GET", f"/staff/cases/{case_id}")
+    blocked = env.call("supervisor", "POST", f"/staff/cases/{case_id}/decisions",
+                       {"outcome": "APPROVED", "reason": "檢核通過", "rule_version_id": env.rule_id,
+                        "evidence_refs": corrected_refs},
+                       etag=current.headers["etag"], key=str(uuid4()))
+    assert blocked.status_code == 409, blocked.text
+    assert blocked.json()["error"]["code"] == "REVIEW_STALE"
+
+    items = env.call("supervisor", "GET", f"/staff/cases/{case_id}/review-items").json()["data"]["items"]
+    again = env.call("supervisor", "PATCH", f"/staff/cases/{case_id}/review-items/{items[0]['id']}",
+                     {"result": "PASS", "internal_note": "已依更正後金額重審",
+                      "evidence_refs": corrected_refs}, etag=items[0]["etag"])
+    assert again.status_code == 200, again.text
+    current = env.call("supervisor", "GET", f"/staff/cases/{case_id}")
+    allowed = env.call("supervisor", "POST", f"/staff/cases/{case_id}/decisions",
+                       {"outcome": "APPROVED", "reason": "檢核通過", "rule_version_id": env.rule_id,
+                        "evidence_refs": corrected_refs},
+                       etag=current.headers["etag"], key=str(uuid4()))
+    assert allowed.status_code == 201, allowed.text
+
+def test_common_words_do_not_trip_the_exclusion_matcher():
+    """A word that merely contains an excluded name must not block a submission."""
+    from app.restricted import match_declared, scan_text
+    for safe in ["manuscript", "Winkler Studio", "Wheeling", "Poet AI", "ChatGPT Plus",
+                 "Perplexity Pro", "Notion AI"]:
+        assert match_declared(safe) is None, safe
+    for named in ["CapCut", "剪映", "Kling", "可靈", "美圖秀秀", "Manus", "Wink", "WHEE",
+                  "SenseAvatar", "poe.com", "GoingBus"]:
+        assert match_declared(named) is not None, named
+    # Receipt prose only reports names that are distinctive enough to rely on.
+    assert [entry.name for entry in scan_text("wink beauty salon receipt")] == []
+    assert [entry.name for entry in scan_text("INVOICE CapCut Pro NT$390")] == ["CapCut"]

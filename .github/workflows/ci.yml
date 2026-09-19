@@ -27,6 +27,8 @@ jobs:
           npm ci
           npm test
           npm run build
+          node --check ../app/web/app.js
+          node --check ../app/web/line-simulator.js
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'

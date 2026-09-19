@@ -24,6 +24,39 @@
 .citizen-app .sidebar nav {
   margin-top: 30px;
 }
+.citizen-app .precheck-nav-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 12px;
+  border-radius: 7px;
+  color: var(--green);
+  background: #edf3e7;
+  font-size: 13px;
+  font-weight: 600;
+}
+.citizen-app .precheck-nav-entry:hover {
+  background: #e4eedc;
+  text-decoration: none;
+}
+.citizen-app .precheck-mobile-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #eaf0e0;
+  color: #244c37;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.citizen-app .citizen-hero .precheck-entry-note {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 16px 0 0;
+}
 .citizen-app .sidebar-note b {
   display: block;
   margin-top: 12px;
@@ -176,7 +209,11 @@
   margin-bottom: 17px;
   font-size: 13px;
 }
-.citizen-app input:not([type="checkbox"]):not([type="file"]),
+/* Radio is excluded alongside checkbox and file: these are controls, not text
+   fields. Without it a radio stretched to the full row, and because the two
+   :not() arguments push this selector above .safety-page input[type=radio],
+   the 17px sizing there lost and every quiz option collapsed. */
+.citizen-app input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .citizen-app textarea,
 .citizen-app select {
   border: 1px solid #d9e2d6;
@@ -828,3 +865,13 @@
     padding: 10px 13px;
   }
 }
+.citizen-app [hidden] { display: none !important; }
+.navigation-confirmation { border: 2px solid #8a6a30; margin-bottom: 20px; }
+.precheck-import { margin-bottom: 20px; }
+.precheck-import h2 { font-size: 18px; margin: 0 0 8px; }
+.precheck-import-preview { margin-top: 18px; }
+.precheck-import-table { overflow-x: auto; margin: 14px 0; }
+.precheck-import-table table { width: 100%; border-collapse: collapse; text-align: left; }
+.precheck-import-table caption { text-align: left; font-size: 13px; padding: 0 0 10px; }
+.precheck-import-table th, .precheck-import-table td { border-bottom: 1px solid #dce4d5; padding: 12px 10px; min-width: 120px; overflow-wrap: anywhere; }
+.precheck-import-table th:first-child, .precheck-import-table td:first-child { min-width: 165px; }

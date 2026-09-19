@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="青年服務 LINE 本機聊天模擬器，使用假發送器體驗選單、預檢與結果摘要。">
+  <title>青年服務 · LINE 聊天模擬器</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/line-simulator.css">
+  <script src="/static/line-simulator.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#composer-input">跳至訊息輸入</a>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">青</span><span>青年服務<small>LINE 互動 · 本機體驗</small></span></a>
+    <a class="header-link" href="/precheck" target="_blank" rel="noopener noreferrer">開啟完整預檢 <span aria-hidden="true">↗</span></a>
+  </header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">對話與預檢，一起走一次</p><h1>青年服務聊天模擬器</h1></div><span class="local-tag">LOCAL DEMO</span></div>
+    <div class="fake-notice" role="note"><span class="status-dot" aria-hidden="true"></span><div><strong>假發送器 · 僅在本機執行</strong><p>不會傳送至真實 LINE。請使用合成測試資料；聊天紀錄只留在此頁，重新整理會建立新會話。</p></div></div>
+    <div class="workspace">
+      <section class="chat-shell" aria-labelledby="chat-title">
+        <div class="chat-header"><span class="chat-avatar" aria-hidden="true">青</span><div><h2 id="chat-title">青年補助服務</h2><p>用選單整理問題，再到網頁完成預檢</p></div><span id="connection-state" class="connection-state">連線中</span></div>
+        <div id="chat-history" class="chat-history" role="log" aria-live="polite" aria-relevant="additions" aria-label="模擬對話紀錄"><div id="session-loading" class="chat-loading"><span></span><span></span><p>正在建立本機會話…</p></div></div>
+        <div id="request-error" class="request-error" role="alert" hidden><p id="request-error-text"></p><button type="button" id="retry-request">重試這次操作</button></div>
+        <div id="event-status" class="event-status" role="status" aria-live="polite">尚未送出事件</div>
+        <form id="composer" class="composer">
+          <label class="sr-only" for="composer-input">傳送合成測試訊息</label>
+          <input id="composer-input" type="text" maxlength="300" autocomplete="off" placeholder="試著輸入「預檢」，請勿輸入個資" aria-describedby="composer-help">
+          <button type="submit" id="send-message" class="primary" disabled>傳送</button>
+        </form>
+        <p id="composer-help" class="composer-help">姓名、生日、證件、卡號、驗證碼與收據，請勿傳到聊天室。</p>
+        <section class="rich-menu-section" aria-labelledby="rich-menu-title"><div class="menu-heading"><h3 id="rich-menu-title">青年補助服務選單</h3><span>點選六格開始互動</span></div><div id="rich-menu" class="rich-menu" aria-busy="true"><p class="menu-placeholder">正在載入服務選單…</p></div></section>
+      </section>
+      <aside class="side-panel" aria-label="操作指引與事件測試">
+        <section class="guide"><p class="eyebrow">完整體驗</p><h2>從聊天，走到預檢結果</h2><ol><li><strong>從「預檢」開始</strong><span>依序選擇購買情境、工具、計費方式與通路。</span></li><li><strong>開啟完整網頁預檢</strong><span>聊天選項會帶到另一個分頁。在網頁核對條件並執行預檢。</span></li><li><strong>回到這裡查看結果</strong><span>取得伺服器產生的安全摘要。登入、保存與正式送件仍是不同步驟。</span></li></ol><button type="button" id="view-result" class="primary wide" disabled>查看結果</button><p class="side-note">聊天中的初檢不代表身分驗證或補助核定。</p></section>
+        <section class="shortcuts"><h2>文字指令</h2><p>與手動輸入相同，點一下即可送出。</p><div id="command-shortcuts" class="command-shortcuts"><button type="button" data-command="選單" disabled>選單</button><button type="button" data-command="預檢" disabled>預檢</button><button type="button" data-command="文件" disabled>文件</button><button type="button" data-command="進度" disabled>進度</button><button type="button" data-command="補正" disabled>補正</button><button type="button" data-command="安全" disabled>安全</button><button type="button" data-command="協助" disabled>協助</button></div></section>
+        <section class="test-controls"><h2>互動情境</h2><p>舊訊息的按鈕會保留，可以回頭點選，確認過期選項的回覆。</p><div class="control-list"><button type="button" id="send-attachment" disabled>模擬傳送附件<span>不選檔、不上傳</span></button><button type="button" id="repeat-event" disabled>重送上一個事件<span>檢查重複事件處理</span></button><button type="button" id="expire-session" disabled>讓對話經過 25 分鐘<span>測試逾時後的回覆</span></button><button type="button" id="reset-session" disabled>建立新會話<span>清除本頁對話紀錄</span></button></div></section>
+        <div class="failure-control"><button type="button" id="simulate-failure" disabled>模擬預檢服務失敗<span>僅影響這次合成測試</span></button></div>
+        <details id="template-gallery" class="template-gallery"><summary>三種合成結果卡</summary><div class="template-notice" role="note"><strong>DEMO · 合成資料展示</strong><p>由示範規則計算的範例，不是這次聊天的預檢結果。展示按鈕不會操作目前會話。</p></div><p id="template-status" class="template-status" role="status" aria-live="polite">展開後載入伺服器範例。</p><button type="button" id="retry-templates" class="template-retry" hidden>重新載入合成結果卡</button><div id="template-cards" class="template-cards"></div></details>
+        <details class="event-details"><summary>最近事件狀態</summary><p>只顯示事件與處理狀態，不顯示識別憑證或填答內容。</p><div id="event-log" class="event-log"><p class="muted">還沒有事件。</p></div></details>
+      </aside>
+    </div>
+  </main>
+  <footer>本機 LINE 互動模擬 · 未連接真實 LINE 發送 · 預檢不等於正式送件或核定</footer>
+</body>
+</html>

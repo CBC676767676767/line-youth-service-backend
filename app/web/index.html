@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="青年 AI 補助申請前自填預檢：了解工具、交易條件與需要準備的資料。預檢不等於正式送件或核定。">
+  <title>青年 AI 補助預檢</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳至主要內容</a>
+  <header class="site-header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">青</span><span>青年服務<span class="brand-sub">申請前，先看清楚</span></span></div>
+    <nav class="main-nav" aria-label="主要導覽">
+      <button type="button" id="nav-precheck" class="nav-link active" aria-current="page">補助預檢</button>
+      <button type="button" id="nav-cases" class="nav-link">我的案件</button>
+      <button type="button" id="nav-account" class="account-button">登入保存</button>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
+    <div class="portal-return"><a href="/">← 返回申辦入口</a><span>離開本頁會清除尚未保存的填答。</span></div>
+    <div class="hero">
+      <p class="eyebrow">青年 AI 補助 · 申請前自查</p>
+      <h1>先了解條件，<br class="mobile-break">再準備申請。</h1>
+      <p class="hero-description">從工具與購買方式開始，整理你需要確認的事項和備件清單。</p>
+    </div>
+    <div class="boundary-notice" role="note"><strong>預檢不等於正式送件或核定。</strong><span>填答為使用者自述，尚未核對文件；登入保存也不保留申請期限或補助額度。</span></div>
+    <div id="line-handoff-notice" class="mode-notice" role="status" aria-live="polite" hidden></div>
+    <div id="catalog-banner" class="mode-notice" hidden></div>
+    <div id="global-status" class="status-message" role="status" aria-live="polite" hidden></div>
+    <section id="catalog-loading" class="loading-state" aria-label="載入預檢目錄"><div class="skeleton"></div><div class="skeleton short"></div><p>正在取得工具目錄與規則版本…</p></section>
+    <section id="catalog-error" class="empty-state" hidden><h2>目前無法取得預檢設定</h2><p>請確認網路及服務狀態後再試一次。尚未送出的填答會保留在本頁記憶體中。</p><button type="button" id="retry-catalog" class="primary">重新載入</button></section>
+    <section id="precheck-view" hidden>
+      <div class="workflow-layout">
+        <aside class="steps-panel" aria-label="預檢進度">
+          <p class="section-label">完成你的預檢</p>
+          <ol class="steps">
+            <li><button type="button" data-step="1"><span class="step-number">01</span><span>購買情境<small>先選擇目前的狀態</small></span></button></li>
+            <li><button type="button" data-step="2"><span class="step-number">02</span><span>工具與交易<small>工具、方案及購買方式</small></span></button></li>
+            <li><button type="button" data-step="3"><span class="step-number">03</span><span>條件自查<small>只填預檢需要的資料</small></span></button></li>
+            <li><button type="button" data-step="4"><span class="step-number">04</span><span>結果與備件<small>整理待確認與下一步</small></span></button></li>
+          </ol>
+          <div class="privacy-note"><strong>先自查，再決定是否保存</strong><p>匿名預檢不建立案件。資料只留在目前頁面記憶體，重新整理即清除；不收集姓名、身分證字號或銀行帳號。</p></div>
+          <button type="button" id="fill-demo" class="text-button" hidden>填入一組合成示範資料</button>
+        </aside>
+        <div class="workflow-main">
+          <form id="precheck-form" novalidate>
+            <section class="step-panel" id="step-1" aria-labelledby="step-title-1">
+              <p class="section-label">步驟 01 / 04</p><h2 id="step-title-1" tabindex="-1">你現在進行到哪裡？</h2><p class="intro">還沒買也可以先了解。選擇不同情境，接下來需要填的資料會不同。</p>
+              <fieldset class="choice-group"><legend class="sr-only">購買情境</legend>
+                <label class="choice-card"><input type="radio" name="purchase_stage" value="planning" checked><span><strong>還沒買，先了解</strong><small>先看工具、方案與條件。現在不需要收據、付款資料或購買日期。</small></span><span class="choice-arrow" aria-hidden="true">↗</span></label>
+                <label class="choice-card"><input type="radio" name="purchase_stage" value="purchased"><span><strong>已購買，準備申請</strong><small>一起檢視交易資料、訂閱期間及申請前要準備的文件。</small></span><span class="choice-arrow" aria-hidden="true">↗</span></label>
+              </fieldset>
+              <div class="step-actions"><span class="quiet">不確定的欄位可保留待確認</span><button type="button" class="primary" data-next="2">下一步：工具與交易 <span aria-hidden="true">→</span></button></div>
+            </section>
+            <section class="step-panel" id="step-2" aria-labelledby="step-title-2" hidden>
+              <p class="section-label">步驟 02 / 04</p><h2 id="step-title-2" tabindex="-1">準備使用哪個工具？</h2><p class="intro">品牌、方案與購買方式會一起檢視。找不到工具或方案時，可以完整填寫名稱並保留待確認。</p>
+              <div class="field"><label for="tool-search">工具名稱或別名</label><input id="tool-search" name="tool_name" type="search" maxlength="120" placeholder="搜尋目錄，或填寫其他工具" autocomplete="off" aria-describedby="tool-help"><p id="tool-help" class="field-help">未收錄不代表不符合。名稱由使用者自述，不表示交易或軟體已驗證。</p><div id="tool-results" class="tool-results" aria-label="符合的工具"></div><p id="tool-selection" class="selection-status" role="status"></p></div>
+              <div class="field-grid">
+                <div class="field"><label for="plan-select">目錄中的方案</label><select id="plan-select" name="plan_id"><option value="">其他／找不到／不確定</option></select></div>
+                <div class="field"><label for="plan-name">方案完整名稱</label><input id="plan-name" name="plan_name" maxlength="160" autocomplete="off" placeholder="例如訂閱等級與方案全名"></div>
+                <div class="field"><label for="billing-type">計費方式</label><select id="billing-type" name="billing_type"><option value="unsure">不確定</option><option value="monthly">月訂閱</option><option value="annual">年訂閱</option><option value="credits">另外購買額度／儲值</option><option value="other">其他</option></select><p class="field-help">訂閱內含額度仍選月／年訂閱。</p></div>
+                <div class="field"><label for="purchase-channel">購買通路</label><select id="purchase-channel" name="purchase_channel"><option value="unsure">不確定</option><option value="official">官方網站</option><option value="marketplace">集合平台</option><option value="agent">代購</option><option value="app_store">App 商店</option><option value="other">其他</option></select></div>
+              </div>
+              <div id="public-billing" class="field-grid" hidden><div class="field"><label for="billing-component">費用內容</label><select id="billing-component" name="billing_component"><option value="unsure">不確定，需協助分類</option><option value="subscription">一般訂閱費</option><option value="included_credits">訂閱費（內含 Credit／Token 額度）</option><option value="standalone_credits">單獨購買點數／Token／API 額度</option><option value="mixed">訂閱費與另外加購額度混合</option></select><p class="field-help">依實際計費內容分類，不以商品名稱關鍵字判斷。</p></div><div class="field"><label for="multiple-tools">本次申請包含的工具</label><select id="multiple-tools" name="multiple_tools"><option value="false">單一工具</option><option value="true">多個工具（適用方式待確認）</option></select></div></div>
+              <div id="seller-fields" class="field-grid" hidden><div class="field"><label for="purchase-url">購買網址（可選填）</label><input id="purchase-url" name="purchase_url" type="text" maxlength="2048" inputmode="url" autocomplete="off" placeholder="https://…"><p class="field-help">只解析網址與目錄比對，不會開啟或下載內容。</p></div><div class="field"><label for="seller">賣方或商店名稱（可選填）</label><input id="seller" name="seller" maxlength="160" autocomplete="off"></div></div>
+              <fieldset id="purchase-dates" class="inset-section" hidden><legend>已購買的交易時間</legend><div class="field-grid dates"><div class="field"><label for="purchase-date">購買日期</label><input id="purchase-date" name="purchase_date" type="date"></div><div class="field"><label for="subscription-start">訂閱開始日</label><input id="subscription-start" name="subscription_start" type="date"></div><div class="field"><label for="subscription-end">訂閱結束日</label><input id="subscription-end" name="subscription_end" type="date"></div></div><p class="field-help">不知道的日期可暫留空白，結果會提示需要確認的資料。</p></fieldset>
+              <div id="public-payment" hidden><div class="field-grid"><div class="field"><label for="eligible-cost-twd">待核對的實際臺幣費用</label><input id="eligible-cost-twd" name="eligible_cost_twd" type="text" inputmode="decimal" maxlength="18" placeholder="例如 4000；未知時留空"><p class="field-help">以實際臺幣帳單為基準，費用認列尚待核對。本頁不換算即時匯率。</p></div><div class="field"><label for="payment-method">付款方式</label><select id="payment-method" name="payment_method"><option value="unsure">不確定</option><option value="credit_card">信用卡</option><option value="other">其他付款方式</option></select></div></div><label class="inline-checkbox"><input id="foreign-currency-only" name="foreign_currency_only" type="checkbox"><span>目前只有外幣金額，沒有臺幣帳單或換算佐證</span></label></div>
+              <fieldset id="monthly-section" class="inset-section" hidden><legend>連續月費明細（可選）</legend><label class="inline-checkbox"><input id="use-monthly-transactions" type="checkbox"><span>這次累積多個月份，以逐月明細取代上方單筆日期與金額</span></label><p class="field-help">最多 12 筆。累積月份及跨月適用方式仍須人工確認；不把每筆收據當作一次獨立補助。</p><div id="monthly-editor" hidden><div id="monthly-transactions"></div><button type="button" id="add-transaction" class="text-button">＋ 新增一個月份</button></div></fieldset>
+              <div class="step-actions"><button type="button" class="secondary" data-next="1">← 返回情境</button><button type="button" class="primary" data-next="3">下一步：條件自查 →</button></div>
+            </section>
+            <section class="step-panel" id="step-3" aria-labelledby="step-title-3" hidden>
+              <p class="section-label">步驟 03 / 04</p><h2 id="step-title-3" tabindex="-1">確認你的申請情形</h2><p class="intro">以下都是使用者自述，系統沒有介接戶籍或身分資料。尚未核對文件。</p>
+              <div class="field-grid"><div class="field"><label for="residency">設籍情形</label><select id="residency" name="residency"><option value="unsure">不確定</option><option value="hsinchu">新竹市</option><option value="other">其他地區</option></select></div><div class="field"><label for="birth-date">出生日期</label><input id="birth-date" name="birth_date" type="date"><p class="field-help">依規則設定的日期區間自查，不代表身分已驗證。</p></div><div class="field"><label for="application-type">申請類型</label><select id="application-type" name="application_type"><option value="">請選擇／不確定</option></select></div></div>
+              <fieldset id="qualification-section" class="inset-section" hidden><legend>自述適用的身分／認證</legend><div id="qualification-options"></div><p class="field-help">請選擇可提供證明的適用類別；有一類適用證明即可供確認，不要求全部具備。比例與上限不疊加，身分證明尚待確認。</p></fieldset>
+              <div id="payer-fields" class="field-grid" hidden><div class="field"><label for="payer">付款人</label><select id="payer" name="payer"><option value="unsure">不確定</option><option value="self">本人</option><option value="other">他人代付</option></select></div><div class="field" id="relationship-field" hidden><label for="payer-relationship">代付人與你的關係</label><select id="payer-relationship" name="payer_relationship"><option value="">不確定／尚未填寫</option><option value="parent">父母</option><option value="spouse">配偶</option><option value="legal_guardian">法定代理人</option><option value="other">其他</option></select><p class="field-help">具體代付資格及證明範圍須由機關確認。</p></div></div>
+              <div id="prior-subsidy-field" class="field" hidden><label for="prior-subsidy">本年度同計畫／相同補助的申請情形（自述）</label><select id="prior-subsidy" name="prior_subsidy"><option value="unsure">不確定</option><option value="none">尚未申請或受補助</option><option value="draft">只有草稿，尚未送出</option><option value="applied">已送出申請，尚未確定結果</option><option value="received">已受補助</option><option value="withdrawn">曾申請但已撤回</option><option value="rejected">曾申請但未核准</option></select><p class="field-help">草稿、撤回、未核准不等於已領補助。沒有跨機關介接，仍不能排除重複補助。</p></div>
+              <div class="small-notice">代付情境可能需要額外文件，不會因此直接拒收案件。</div>
+              <div id="evaluate-error" class="status-message error" role="alert" hidden></div>
+              <div class="step-actions"><button type="button" class="secondary" data-next="2">← 返回工具與交易</button><button type="submit" class="primary" id="evaluate-button">執行自填預檢 →</button></div>
+            </section>
+          </form>
+          <section id="step-4" class="step-panel results-panel" aria-labelledby="result-title" hidden><div id="results"></div></section>
+        </div>
+      </div>
+    </section>
+    <section id="account-view" class="account-panel" hidden aria-labelledby="account-title">
+      <p class="section-label">使用既有帳號機制</p><h2 id="account-title" tabindex="-1">登入後，保存至你的草稿</h2><p class="intro">登入不代表身分、戶籍已查證。保存預檢不會正式送件，也不會變更案件核定狀態。</p>
+      <div id="account-info" hidden></div>
+      <div id="login-content"><div class="segmented" aria-label="登入方式"><button type="button" id="login-youth" aria-pressed="true">信箱驗證碼</button><button type="button" id="login-staff" aria-pressed="false">承辦登入</button></div>
+        <form id="email-form"><div class="field"><label for="login-email">電子信箱</label><input id="login-email" type="email" maxlength="254" autocomplete="email" required></div><button type="submit" class="primary">取得一次性驗證碼</button><p class="field-help">開發環境的驗證碼由既有私有郵件服務提供；本頁不會自動顯示或假造驗證碼。</p></form>
+        <form id="code-form" hidden><div class="field"><label for="login-code">信箱中的 6 位驗證碼</label><input id="login-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div><button type="submit" class="primary">驗證並登入</button><button type="button" class="text-button" id="resend-code">重新取得驗證碼</button></form>
+        <form id="staff-form" hidden><div class="field"><label for="staff-email">承辦信箱</label><input id="staff-email" type="email" maxlength="254" autocomplete="username" required></div><div class="field"><label for="staff-password">密碼</label><input id="staff-password" type="password" autocomplete="current-password" required></div><button type="submit" class="primary">下一步：多因素驗證</button></form>
+        <form id="mfa-form" hidden><div class="field"><label for="mfa-code">驗證器中的一次性代碼</label><input id="mfa-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></div><button type="submit" class="primary">完成承辦登入</button></form>
+      </div>
+      <div id="auth-status" class="status-message" role="status" aria-live="polite" hidden></div>
+      <button type="button" id="back-to-precheck" class="text-button">← 回到尚未保存的預檢</button>
+    </section>
+    <section id="cases-view" class="cases-panel" hidden aria-labelledby="cases-title"><div class="panel-heading"><div><p class="section-label">依既有案件權限顯示</p><h2 id="cases-title" tabindex="-1">案件與預檢摘要</h2></div><button type="button" id="refresh-cases" class="secondary">重新載入</button></div><p class="intro">預檢快照獨立保存。此處不會同步政府平台、正式送件或更動核定及財務狀態。</p><div id="cases-content"></div><div id="case-detail"></div></section>
+    <aside id="security-section" class="security-section"><div><p class="section-label">獨立的資安提醒</p><h2>安心使用，也要另外留意</h2></div><div id="security-content"><p>網域符合目錄，只表示入口相符，不代表交易或軟體安全。不要將證件、銀行帳號或驗證碼輸入 AI 工具。</p><p class="quiet">登入後可查看既有系統發布的資安提醒；資安提醒不參與補助預檢判定。</p></div></aside>
+  </main>
+  <footer class="site-footer"><span>青年 AI 補助預檢</span><span id="footer-provenance"></span><span>使用者自述 · 尚未核對文件 · 非正式送件</span></footer>
+</body>
+</html>

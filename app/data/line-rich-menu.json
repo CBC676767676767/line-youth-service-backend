@@ -1,0 +1,14 @@
+{
+  "size": {"width": 2500, "height": 1686},
+  "selected": true,
+  "name": "youth-service-v1",
+  "chatBarText": "青年補助服務",
+  "areas": [
+    {"bounds": {"x": 0, "y": 0, "width": 833, "height": 843}, "action": {"type": "postback", "label": "補助預檢", "data": "youth:start"}},
+    {"bounds": {"x": 833, "y": 0, "width": 833, "height": 843}, "action": {"type": "postback", "label": "補助規則", "data": "youth:rules"}},
+    {"bounds": {"x": 1666, "y": 0, "width": 834, "height": 843}, "action": {"type": "postback", "label": "備件清單", "data": "youth:documents"}},
+    {"bounds": {"x": 0, "y": 843, "width": 833, "height": 843}, "action": {"type": "postback", "label": "申請進度", "data": "youth:tracking"}},
+    {"bounds": {"x": 833, "y": 843, "width": 833, "height": 843}, "action": {"type": "postback", "label": "安全提醒", "data": "youth:safety"}},
+    {"bounds": {"x": 1666, "y": 843, "width": 834, "height": 843}, "action": {"type": "postback", "label": "服務選單", "data": "youth:menu"}}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "project": "project-471d0dfb-dcea-4f41-ba2",
+  "region": "asia-east1",
+  "zone": "asia-east1-b",
+  "instance_name": "youth-service-prod",
+  "machine_type": "e2-standard-2",
+  "vcpus": 2,
+  "memory_gib": 8,
+  "os": "Debian 13 trixie (Ubuntu 24.04 LTS also supported)",
+  "boot_disk": {"type": "pd-balanced", "size_gib": 50, "auto_delete": false},
+  "network": {"name": "youth-service-vpc", "subnet": "youth-service-asia-east1", "cidr": "10.70.0.0/24"},
+  "public_ingress": {"tcp": [80, 443], "udp": [443]},
+  "ssh": "OS Login through IAP; restrict tcp/22 to IAP 35.235.240.0/20 or an explicitly approved admin source",
+  "ipv4": "One reserved static external IPv4; point the chosen domain A record at it",
+  "application_ports": "8000, 5432 and 3310 have no host publication or public firewall rules",
+  "service_account": "No application cloud permissions required; do not attach broad default service-account permissions",
+  "public_webhook_path": "/api/v1/webhooks/line",
+  "processes": "One API process, one replica; transient conversation state is process-local",
+  "console_quote_usd_per_month": {"compute": "56.64", "50_gib_pd_balanced": "5.00", "base_total": "61.64"},
+  "quote_excludes": ["external IPv4", "egress", "off-VM backups", "domain", "SMTP", "taxes"],
+  "status": "Reviewable plan only; this file does not create any cloud resource"
+}

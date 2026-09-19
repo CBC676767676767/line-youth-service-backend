@@ -4,10 +4,13 @@ import {
   ArrowRight,
   Check,
   ClipboardCheck,
+  Clock,
+  Columns3 as Columns,
   Download,
   FileText,
   FolderOpen,
   Leaf,
+  List as ListIcon,
   LockKeyhole,
   LogOut,
   Plus,
@@ -17,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { api, ApiError, errorMessage, setCsrf } from '../shared/api';
+import PrecheckSummary from '../components/PrecheckSummary';
 import {
   caseLabels,
   documentLabels,
@@ -31,6 +35,16 @@ import {
 
 const staffRoles = ['reviewer', 'supervisor', 'auditor', 'admin'];
 const caseRoles = ['reviewer', 'supervisor', 'auditor'];
+
+/** Board columns follow the case lifecycle. Cards are never dragged between them:
+ *  a status change is a reviewed decision with authorization, an If-Match version
+ *  check and an audit entry, so it happens in the case panel, not by dropping a card. */
+const boardColumns: { status: string; hint: string; tone: string }[] = [
+  { status: 'RECEIVED', hint: '等待承辦開始審查', tone: 'amber' },
+  { status: 'UNDER_REVIEW', hint: '審查中，可能需要補件', tone: '' },
+  { status: 'DECIDED', hint: '已核定，待結案', tone: 'neutral' },
+  { status: 'CLOSED', hint: '流程已完成', tone: 'neutral' },
+];
 const roleLabels: Record<string, string> = {
   reviewer: '承辦人員',
   supervisor: '業務主管',
@@ -174,8 +188,11 @@ export default function AdminApp() {
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState('');
   const [checking, setChecking] = useState(false);
+  const [sessionFailure, setSessionFailure] = useState<'refresh' | 'logout' | null>(null);
+  const [identityRefresh, setIdentityRefresh] = useState(0);
   const current = useRef<Me | null>(null);
   const generation = useRef(0);
+  const signingOut = useRef(false);
 
   const identify = useCallback((identity: Me) => {
     generation.current++;
@@ -183,6 +200,8 @@ export default function AdminApp() {
     setCsrf(identity.csrf_token);
     setMe(identity);
     setMessage('');
+    setSessionFailure(null);
+    setChecking(false);
     setReady(true);
   }, []);
 
@@ -195,10 +214,12 @@ export default function AdminApp() {
         const identity = await api<Me>('/me');
         if (active && turn === generation.current) identify(identity);
       } catch (error) {
-        if (active && !(error instanceof ApiError && error.status === 401))
-          setMessage(errorMessage(error));
+        if (active && turn === generation.current && !(error instanceof ApiError && error.status === 401)) {
+          setMessage(`暫時無法確認登入狀態。${errorMessage(error)}`);
+          setSessionFailure('refresh');
+        }
       } finally {
-        if (active) {
+        if (active && turn === generation.current) {
           setReady(true);
           setChecking(false);
         }
@@ -211,9 +232,11 @@ export default function AdminApp() {
       setCsrf();
       setMe(null);
       setReady(true);
+      setChecking(false);
+      setSessionFailure(null);
     };
     const focus = () => {
-      if (current.current) void refreshIdentity();
+      if (current.current && !signingOut.current) void refreshIdentity();
     };
     window.addEventListener('youth:session-expired', expired);
     window.addEventListener('focus', focus);
@@ -223,18 +246,29 @@ export default function AdminApp() {
       window.removeEventListener('youth:session-expired', expired);
       window.removeEventListener('focus', focus);
     };
-  }, [identify]);
+  }, [identify, identityRefresh]);
 
   async function logout() {
+    if (signingOut.current) return;
+    signingOut.current = true;
+    const turn = ++generation.current;
+    setChecking(true);
     try {
       await api('/auth/logout', { method: 'POST' });
-      generation.current++;
+      if (turn !== generation.current) return;
       current.current = null;
       setCsrf();
       setMe(null);
       setMessage('已登出，工作資料已清除。');
+      setSessionFailure(null);
     } catch (error) {
-      setMessage(errorMessage(error));
+      if (turn === generation.current && current.current) {
+        setMessage(`登出未完成，尚未確認工作階段已結束。${errorMessage(error)}`);
+        setSessionFailure('logout');
+      }
+    } finally {
+      signingOut.current = false;
+      if (turn === generation.current) setChecking(false);
     }
   }
 
@@ -271,7 +305,18 @@ export default function AdminApp() {
   const identityKey = JSON.stringify([me.account.id, me.roles.slice().sort(), me.permissions]);
   return (
     <div className="ad-root">
-      <Workspace key={identityKey} me={me} checking={checking} onLogout={logout} />
+      <Workspace
+        key={identityKey}
+        me={me}
+        checking={checking}
+        onLogout={logout}
+        sessionMessage={message}
+        sessionRetryLabel={sessionFailure === 'logout' ? '重試登出' : '重新確認登入'}
+        onRetrySession={() => {
+          if (sessionFailure === 'logout') void logout();
+          else setIdentityRefresh((value) => value + 1);
+        }}
+      />
     </div>
   );
 }
@@ -437,14 +482,24 @@ function Workspace({
   me,
   checking,
   onLogout,
+  sessionMessage,
+  sessionRetryLabel,
+  onRetrySession,
 }: {
   me: Me;
   checking: boolean;
   onLogout: () => Promise<void>;
+  sessionMessage: string;
+  sessionRetryLabel: string;
+  onRetrySession: () => void;
 }) {
   const canReadCases = me.roles.some((role) => caseRoles.includes(role));
   const canManageAccounts = me.roles.includes('admin');
   const [view, setView] = useState<'cases' | 'accounts'>(canReadCases ? 'cases' : 'accounts');
+  const [layout, setLayout] = useState<'board' | 'list'>('board');
+  const [board, setBoard] = useState<Record<string, CaseData[]>>({});
+  const [boardLoading, setBoardLoading] = useState(false);
+  const boardSequence = useRef(0);
   const [items, setItems] = useState<CaseData[]>([]);
   const [status, setStatus] = useState('RECEIVED');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -466,6 +521,32 @@ function Workspace({
       listSequence.current++;
     };
   }, []);
+
+  const loadBoard = useCallback(async () => {
+    if (!canReadCases) return;
+    const turn = ++boardSequence.current;
+    setBoardLoading(true);
+    setError('');
+    try {
+      // One request per column. A column that the account cannot read fails on its
+      // own and shows as empty; it must not blank out the whole board.
+      const pages = await Promise.all(
+        boardColumns.map((column) =>
+          api<Page<CaseData>>(`/staff/cases?limit=50&status=${column.status}`)
+            .then((page) => page.items)
+            .catch(() => [] as CaseData[]),
+        ),
+      );
+      if (!alive.current || turn !== boardSequence.current) return;
+      const next: Record<string, CaseData[]> = {};
+      boardColumns.forEach((column, index) => {
+        next[column.status] = pages[index];
+      });
+      setBoard(next);
+    } finally {
+      if (alive.current && turn === boardSequence.current) setBoardLoading(false);
+    }
+  }, [canReadCases]);
 
   const loadCases = useCallback(
     async (cursor?: string) => {
@@ -491,14 +572,53 @@ function Workspace({
     [canReadCases, status],
   );
   useEffect(() => {
-    if (view === 'cases' && !selectedId) void loadCases();
-  }, [view, selectedId, loadCases]);
+    if (view !== 'cases' || selectedId) return;
+    if (layout === 'board') void loadBoard();
+    else void loadCases();
+  }, [view, selectedId, layout, loadBoard, loadCases]);
+
+  /** Dropping a card runs the transition only when it needs no operator input.
+   *  Deciding needs an amount and a reason, closing needs a completion note, so
+   *  those open the case instead of being approved by a gesture. */
+  async function moveCase(item: CaseData, target: string) {
+    if (item.status === target) return;
+    setError('');
+    setNotice('');
+    if (item.status === 'RECEIVED' && target === 'UNDER_REVIEW') {
+      const who = textValue(item.form_data.name) || item.case_no;
+      if (!window.confirm(`開始審查「${who}」？這會記入稽核軌跡。`)) return;
+      setBusy(true);
+      try {
+        await api(`/staff/cases/${item.id}/start-review`, { method: 'POST', etag: item.etag });
+        setNotice('已開始審查。');
+        await loadBoard();
+      } catch (cause) {
+        setError(errorMessage(cause));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const opensCase: Record<string, string> = {
+      'UNDER_REVIEW>DECIDED': '核定需要填寫金額與理由，已開啟案件的審查面板。',
+      'DECIDED>CLOSED': '結案需要填寫完成紀錄，已開啟案件。',
+    };
+    const step = opensCase[`${item.status}>${target}`];
+    if (step) {
+      setNotice(step);
+      await loadCase(item.id);
+      return;
+    }
+    setError('這兩欄之間沒有可直接進行的流程。請開啟案件確認目前允許的操作。');
+  }
 
   async function loadCase(id: string) {
     const turn = ++requestSequence.current;
     if (id !== selectedId) setCaseTab('documents');
     setSelectedId(id);
-    setBundle(null);
+    // Keep unchanged review cards mounted while refreshing this case so their
+    // unsaved notes and evidence survive a sibling card's successful save.
+    setBundle((previous) => (previous?.detail.id === id ? previous : null));
     setLoading(true);
     setError('');
     try {
@@ -511,23 +631,27 @@ function Workspace({
       if (alive.current && turn === requestSequence.current)
         setBundle({ detail, scheme, schema, reviews: reviews.items });
     } catch (cause) {
-      if (alive.current && turn === requestSequence.current) setError(errorMessage(cause));
+      if (alive.current && turn === requestSequence.current) {
+        setError(errorMessage(cause));
+        if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) setBundle(null);
+      }
     } finally {
       if (alive.current && turn === requestSequence.current) setLoading(false);
     }
   }
   const run: Run = async (operation, success) => {
+    const turn = requestSequence.current;
     setBusy(true);
     setError('');
     setNotice('');
     try {
       await operation();
-      if (!alive.current) return false;
+      if (!alive.current || turn !== requestSequence.current) return false;
       setNotice(success);
       if (selectedId) await loadCase(selectedId);
       return true;
     } catch (cause) {
-      if (alive.current) setError(errorMessage(cause));
+      if (alive.current && turn === requestSequence.current) setError(errorMessage(cause));
       return false;
     } finally {
       if (alive.current) setBusy(false);
@@ -537,6 +661,7 @@ function Workspace({
     requestSequence.current++;
     setSelectedId(null);
     setBundle(null);
+    setLoading(false);
     setCaseTab('documents');
     setError('');
     setNotice('');
@@ -591,7 +716,7 @@ function Workspace({
           <span>新竹青年服務 · 後台</span>
           <div>
             <span className="ad-user-email">{me.account.email}</span>
-            <button className="ad-btn ad-quiet" disabled={busy} onClick={() => void onLogout()}>
+            <button className="ad-btn ad-quiet" disabled={busy || checking} onClick={() => void onLogout()}>
               <LogOut size={15} /> 登出
             </button>
           </div>
@@ -605,6 +730,14 @@ function Workspace({
               ))}
             {checking && <span role="status">正在確認登入…</span>}
           </div>
+          {sessionMessage && (
+            <Notice error>
+              {sessionMessage}
+              <button className="ad-text-link" disabled={busy || checking} onClick={onRetrySession}>
+                {sessionRetryLabel}
+              </button>
+            </Notice>
+          )}
           {error && (
             <Notice error>
               {error}
@@ -617,7 +750,7 @@ function Workspace({
             </Notice>
           )}
           {notice && <Notice>{notice}</Notice>}
-          <fieldset className="ad-work-area" disabled={busy || checking}>
+          <fieldset className="ad-work-area" disabled={busy || checking || loading}>
             {view === 'accounts' && canManageAccounts ? (
               <Accounts me={me} />
             ) : selectedId ? (
@@ -634,20 +767,20 @@ function Workspace({
                     <RefreshCw size={15} /> 更新案件
                   </button>
                 </div>
-                {loading ? (
+                {loading && (
                   <div className="ad-empty" role="status">
                     正在讀取案件與審查資料…
                   </div>
-                ) : (
-                  bundle && (
-                    <CaseWorkspace
-                      bundle={bundle}
-                      me={me}
-                      run={run}
-                      tab={caseTab}
-                      onTab={setCaseTab}
-                    />
-                  )
+                )}
+                {bundle && (
+                  <CaseWorkspace
+                    key={bundle.detail.id}
+                    bundle={bundle}
+                    me={me}
+                    run={run}
+                    tab={caseTab}
+                    onTab={setCaseTab}
+                  />
                 )}
               </>
             ) : (
@@ -658,10 +791,40 @@ function Workspace({
                     <h1>案件工作台</h1>
                     <p>只顯示你有權存取的案件，開啟後可核對文件與處理補件。</p>
                   </div>
-                  <button className="ad-btn" onClick={() => void loadCases()} disabled={loading}>
-                    <RefreshCw size={16} /> 更新列表
-                  </button>
+                  <div className="ad-heading-actions">
+                    <div className="ad-segmented" role="group" aria-label="檢視方式">
+                      <button
+                        className={layout === 'board' ? 'is-active' : ''}
+                        aria-pressed={layout === 'board'}
+                        onClick={() => setLayout('board')}
+                      >
+                        <Columns size={15} /> 看板
+                      </button>
+                      <button
+                        className={layout === 'list' ? 'is-active' : ''}
+                        aria-pressed={layout === 'list'}
+                        onClick={() => setLayout('list')}
+                      >
+                        <ListIcon size={15} /> 列表
+                      </button>
+                    </div>
+                    <button
+                      className="ad-btn"
+                      onClick={() => (layout === 'board' ? void loadBoard() : void loadCases())}
+                      disabled={loading || boardLoading}
+                    >
+                      <RefreshCw size={16} /> 更新
+                    </button>
+                  </div>
                 </div>
+                {layout === 'board' ? (
+                  <CaseBoard
+                    board={board}
+                    loading={boardLoading}
+                    onOpen={(id) => void loadCase(id)}
+                    onMove={(item, target) => void moveCase(item, target)}
+                  />
+                ) : (
                 <section className="ad-card">
                   <div className="ad-list-toolbar">
                     <Field label="案件狀態">
@@ -726,12 +889,113 @@ function Workspace({
                     </button>
                   )}
                 </section>
+                )}
               </>
             )}
           </fieldset>
         </main>
       </div>
     </div>
+  );
+}
+
+function CaseBoard({
+  board,
+  loading,
+  onOpen,
+  onMove,
+}: {
+  board: Record<string, CaseData[]>;
+  loading: boolean;
+  onOpen: (id: string) => void;
+  onMove: (item: CaseData, target: string) => void;
+}) {
+  const [dragging, setDragging] = useState<CaseData | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const total = boardColumns.reduce((sum, column) => sum + (board[column.status]?.length || 0), 0);
+  return (
+    <section className="ad-board-wrap">
+      <p className="ad-board-note">
+        拖曳卡片到下一欄即可推進流程。需要填寫金額、理由或完成紀錄的步驟會開啟案件，不會只靠拖曳完成核定；
+        每次變更都經過權限檢查並記入稽核軌跡。
+      </p>
+      <div className="ad-board" role="list">
+        {boardColumns.map((column) => {
+          const cases = board[column.status] || [];
+          const active = dragging && dragging.status !== column.status;
+          return (
+            <div
+              className={`ad-board-col${over === column.status && active ? ' is-over' : ''}`}
+              role="listitem"
+              key={column.status}
+              onDragOver={(event) => {
+                if (!active) return;
+                event.preventDefault();
+                setOver(column.status);
+              }}
+              onDragLeave={() => setOver((current) => (current === column.status ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                setOver(null);
+                const item = dragging;
+                setDragging(null);
+                if (item) onMove(item, column.status);
+              }}
+            >
+              <header className="ad-board-head">
+                <div>
+                  <h2>{caseLabels[column.status] || column.status}</h2>
+                  <p>{column.hint}</p>
+                </div>
+                <Badge tone={cases.length ? column.tone : 'neutral'}>{cases.length}</Badge>
+              </header>
+              <div className="ad-board-cards">
+                {cases.map((item) => {
+                  const open = (item.tasks || []).filter(
+                    (task) => task.status === 'OPEN' || task.status === 'REOPENED',
+                  ).length;
+                  return (
+                    <button
+                      className={`ad-board-card${dragging?.id === item.id ? ' is-dragging' : ''}`}
+                      key={item.id}
+                      draggable
+                      onDragStart={(event) => {
+                        setDragging(item);
+                        event.dataTransfer.effectAllowed = 'move';
+                        // Firefox only starts a drag once some data is set.
+                        event.dataTransfer.setData('text/plain', item.case_no);
+                      }}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setOver(null);
+                      }}
+                      onClick={() => onOpen(item.id)}
+                    >
+                      <strong>{textValue(item.form_data.name)}</strong>
+                      <span className="ad-board-no">{item.case_no}</span>
+                      <span className="ad-board-meta">
+                        <Clock size={12} /> {date(item.last_business_update_at)}
+                      </span>
+                      {open > 0 && <Badge tone="amber">待補件 {open}</Badge>}
+                    </button>
+                  );
+                })}
+                {!cases.length && (
+                  <p className="ad-board-empty">{loading ? '讀取中…' : '目前沒有案件'}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!total && !loading && (
+        <div className="ad-empty">
+          <FolderOpen size={32} />
+          <h2>還沒有可顯示的案件</h2>
+          <p>承辦帳號需先取得案件分派或存取授權，才會在這裡看到申請。</p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -814,6 +1078,7 @@ function CaseWorkspace({
       </nav>
       {tab === 'documents' && (
         <>
+          <PrecheckSummary key={`${detail.id}-${detail.version}`} caseId={detail.id} />
           <section className="ad-card">
             <div className="ad-section-heading">
               <h2>申請人填寫資料</h2>
@@ -1013,6 +1278,7 @@ function TaskCreate({ caseId, run }: { caseId: string; run: Run }) {
   const [criteria, setCriteria] = useState('');
   const [due, setDue] = useState(futureDate);
   const keyFor = useStableKey();
+  const creationSequence = useRef(0);
   async function submit(event: FormEvent) {
     event.preventDefault();
     const body = {
@@ -1021,15 +1287,22 @@ function TaskCreate({ caseId, run }: { caseId: string; run: Run }) {
       acceptance_criteria: criteria,
       due_at: new Date(due).toISOString(),
     };
-    await run(
+    const saved = await run(
       () =>
         api(`/staff/cases/${caseId}/tasks`, {
           method: 'POST',
           json: body,
-          idempotencyKey: keyFor(body),
+          idempotencyKey: keyFor([creationSequence.current, body]),
         }),
       '補件要求已建立，通知將依伺服器排程處理。',
     );
+    if (saved) {
+      creationSequence.current++;
+      setTitle('');
+      setRequirement('');
+      setCriteria('');
+      setDue(futureDate());
+    }
   }
   return (
     <details className="ad-card ad-create-task">
@@ -1559,6 +1832,7 @@ function DecisionPanel({
   const [confirmed, setConfirmed] = useState(false);
   const [completion, setCompletion] = useState('');
   const keyFor = useStableKey();
+  useEffect(() => setConfirmed(false), [detail.version]);
   const canDecide =
     me.roles.includes('supervisor') && detail.allowed_actions.includes('create_decision');
   const canClose = me.roles.includes('supervisor') && detail.allowed_actions.includes('close_case');
