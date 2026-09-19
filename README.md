@@ -7,12 +7,12 @@
 
 ## 團隊同步與兩個入口
 
-本次網站整合分支為 `feat/hsinchu-youth-web-portals`。已有 clone 的成員可先保留自己的未提交變更，再執行：
+網站與管理後台已合併至 `main`（[PR #1](https://github.com/CBC676767676767/line-youth-service-backend/pull/1)）。已有 clone 的成員可先保留自己的未提交變更，再執行：
 
 ```bash
 git fetch origin
-git switch feat/hsinchu-youth-web-portals
-git pull --ff-only
+git switch main
+git pull --ff-only origin main
 ```
 
 - 民眾端：`http://127.0.0.1:8000/`，信箱驗證、補助申請、本機證件／收據文字辨識、附件上傳、進度及補件、安全學堂。
