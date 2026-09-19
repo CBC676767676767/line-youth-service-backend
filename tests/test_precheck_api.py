@@ -13,7 +13,7 @@ from alembic import command
 from alembic.config import Config
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
-from sqlalchemy import func, inspect, select, update
+from sqlalchemy import MetaData, Table, func, inspect, select, update
 
 from app import precheck
 from app.auth_crypto import digest
@@ -554,8 +554,18 @@ def test_alembic_upgrade_preserves_existing_case(tmp_path, monkeypatch):
         seed_scheme(db)
         db.add(Account(id="migration-owner", email="migration@example.test"))
         db.flush()
-        db.add(Case(id="migration-case", created_by="migration-owner", scheme_id="youth-demo",
-                    case_no="SYNTHETIC-CASE", form_data={"subject": "preserve me"}, status="DRAFT"))
+        # Reflect the table as this revision actually defines it. Inserting the
+        # mapped Case would fail whenever a later revision adds a column, which
+        # is exactly the upgrade this test exists to exercise.
+        legacy = Table("cases", MetaData(), autoload_with=engine)
+        values = {"id": "migration-case", "created_by": "migration-owner",
+                  "scheme_id": "youth-demo", "case_no": "SYNTHETIC-CASE",
+                  "form_data": {"subject": "preserve me"}, "status": "DRAFT",
+                  "schema_version": 1, "current_revision_no": 0, "version": 1,
+                  "created_at": utcnow(), "updated_at": utcnow(),
+                  "last_business_update_at": utcnow()}
+        db.execute(legacy.insert().values(
+            **{name: value for name, value in values.items() if name in legacy.c}))
         db.commit()
     command.upgrade(config, "head")
     assert "precheck_snapshots" in inspect(engine).get_table_names()

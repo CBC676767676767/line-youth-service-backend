@@ -33,8 +33,17 @@ def main(argv=None):
     try:
         settings = Settings()
         origin = "https://" + checked_domain()
+        # The staff portal runs on its own host and address, so its origin has to
+        # be allowed too. It stays an explicit, checked hostname: the allowlist
+        # never grows beyond the citizen entry and that one staff entry.
+        expected = [origin]
+        staff = os.environ.get("YOUTH_ADMIN_DOMAIN", "")
+        if staff:
+            assert re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,63}", staff)
+            assert not staff.endswith(PLACEHOLDER_TLDS) and staff != checked_domain()
+            expected.append("https://" + staff)
         # Shared edge requirements: identical for both profiles.
-        assert settings.public_origin == origin and settings.allowed_origins == [origin]
+        assert settings.public_origin == origin and settings.allowed_origins == expected
         assert settings.cookie_secure and not settings.auto_create_schema
         assert not settings.line_simulator_enabled
         assert settings.scan_backend == "clamav"

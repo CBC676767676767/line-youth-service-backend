@@ -65,7 +65,10 @@ services:
 
   api:
     <<: *app
-    command: [uvicorn, "app.main:create_app", --factory, --host, "0.0.0.0", --port, "8000", --workers, "1", --no-access-log, --proxy-headers, --forwarded-allow-ips, "172.30.70.2"]
+    # Published for the separate staff edge host only. The default keeps it on
+    # the loopback, and the VPC rule allows the edge address and nothing else.
+    ports: ["${YOUTH_API_BIND:-127.0.0.1}:8000:8000"]
+    command: [uvicorn, "app.main:create_app", --factory, --host, "0.0.0.0", --port, "8000", --workers, "1", --no-access-log, --proxy-headers, --forwarded-allow-ips, "172.30.70.2,172.30.70.1"]
     depends_on:
       db: {condition: service_healthy}
       clamav: {condition: service_healthy}
