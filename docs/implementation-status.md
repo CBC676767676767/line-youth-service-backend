@@ -47,4 +47,21 @@ GCP 已完成認證，已確認專案 `billingEnabled=true`，Compute API 已成
 
 本輪沒有建立 Git commit 或執行 GitHub push。既有遠端歷史不作為本輪交付或驗證證據。金鑰、private profile、驗證郵件、案件資料與附件均不屬於交付文件。
 
+操作命令見 [README](../README.md)。原生模式使用 `.env` 中的 PostgreSQL 連線與本機 `var` 目錄；容器 API／worker 共用 `/data` named volume。兩種模式不能在不同儲存目錄下共用同一批文件紀錄。金鑰、工作階段、驗證郵件及附件皆不屬於 Git 交付物。
+
+## 網站整合更新
+
+民眾 `/` 與管理 `/admin/` 使用獨立 HTML/React 入口，共用同源 API。申請人透過信箱驗證，工作帳號保留密碼與 TOTP；前端不提供角色切換，瀏覽器重新整理後由 `/me` 和案件 API 還原。未儲存的 OCR 全字號與原始文字不會寫入 web storage；申請表僅保留遮罩字號，附件需使用者另行選擇上傳。
+
+方案 `hsinchu-ai-grant-2026` 使用固定白名單欄位及條件文件要求，原 `youth-demo` 不變。文件依一次性 intent／PUT／complete 完成私有儲存後加入回執；送件重試保留同一識別碼與內容，承辦變更帶版本與證據。管理端只列正式提交的文件版本。
+
+本次未增加核銷／匯款狀態或真實出納整合；未聲稱 OCR 能驗證證件真偽，也未量測真實照片辨識準確率。
+
+網站整合驗證：Python 回歸 140 項與前端 32 項測試通過，兩個入口 TypeScript／Vite 建置通過。新增隔離真 HTTP 流程驗證信箱與工作帳號登入、六類附件、補件、安全掃描前阻擋接受、人工證據與核定；步驟見 [整合驗證](web-smoke.md)。遠端 CI 的實際結果請查看 GitHub Actions。
+
+
+瀏覽器整合驗證已使用隔離伺服器與合成資料完成：信箱 OTP → 儲存草稿 → 六類附件 → 申請回執 → 主管密碼及 TOTP → 清晰度補件 → 民眾新增附件與補件回執 → 承辦接受 → 五項有依據的人工檢核 → 明確核准 → 結案。另驗證了民眾／主管／帳管隔離、重整恢復、失效登入清除畫面、真正身分證欄位 OCR、LINE 四入口與 390px 畫面。未使用真實身分證或政府資料，沒有測量實際 OCR 準確率或節省工時。
+
+[PR #1 遠端 CI](https://github.com/CBC676767676767/line-youth-service-backend/actions/runs/35426136548) 已通過前端 32 項、Python 140 項、隔離補助 HTTP 流程、PostgreSQL 遷移／既有流程及完整 Docker 映像建置，整合已合併至 `main`。後續提交的狀態以各自 GitHub Actions 紀錄為準。
+
 正式使用前仍需機關確認規則歧義、通知與工作日曆、保存政策、權限流程及維運要求；未宣稱完成負載、正式無障礙、備份還原或高可用驗收。規則與待確認事項見 [公開來源](precheck-policy-sources.md)及[待確認清單](precheck-pending-confirmations.md)。
