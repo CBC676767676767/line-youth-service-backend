@@ -1267,3 +1267,13 @@ body {
     flex-wrap: wrap;
   }
 }
+.ad-board-col.is-over {
+  border-color: var(--ad-green);
+  background: #e4ecdc;
+}
+.ad-board-card {
+  touch-action: manipulation;
+}
+.ad-board-card.is-dragging {
+  opacity: 0.45;
+}

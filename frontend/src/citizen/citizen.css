@@ -209,7 +209,11 @@
   margin-bottom: 17px;
   font-size: 13px;
 }
-.citizen-app input:not([type="checkbox"]):not([type="file"]),
+/* Radio is excluded alongside checkbox and file: these are controls, not text
+   fields. Without it a radio stretched to the full row, and because the two
+   :not() arguments push this selector above .safety-page input[type=radio],
+   the 17px sizing there lost and every quiz option collapsed. */
+.citizen-app input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .citizen-app textarea,
 .citizen-app select {
   border: 1px solid #d9e2d6;

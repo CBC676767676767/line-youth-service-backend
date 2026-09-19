@@ -577,6 +577,41 @@ function Workspace({
     else void loadCases();
   }, [view, selectedId, layout, loadBoard, loadCases]);
 
+  /** Dropping a card runs the transition only when it needs no operator input.
+   *  Deciding needs an amount and a reason, closing needs a completion note, so
+   *  those open the case instead of being approved by a gesture. */
+  async function moveCase(item: CaseData, target: string) {
+    if (item.status === target) return;
+    setError('');
+    setNotice('');
+    if (item.status === 'RECEIVED' && target === 'UNDER_REVIEW') {
+      const who = textValue(item.form_data.name) || item.case_no;
+      if (!window.confirm(`開始審查「${who}」？這會記入稽核軌跡。`)) return;
+      setBusy(true);
+      try {
+        await api(`/staff/cases/${item.id}/start-review`, { method: 'POST', etag: item.etag });
+        setNotice('已開始審查。');
+        await loadBoard();
+      } catch (cause) {
+        setError(errorMessage(cause));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const opensCase: Record<string, string> = {
+      'UNDER_REVIEW>DECIDED': '核定需要填寫金額與理由，已開啟案件的審查面板。',
+      'DECIDED>CLOSED': '結案需要填寫完成紀錄，已開啟案件。',
+    };
+    const step = opensCase[`${item.status}>${target}`];
+    if (step) {
+      setNotice(step);
+      await loadCase(item.id);
+      return;
+    }
+    setError('這兩欄之間沒有可直接進行的流程。請開啟案件確認目前允許的操作。');
+  }
+
   async function loadCase(id: string) {
     const turn = ++requestSequence.current;
     if (id !== selectedId) setCaseTab('documents');
@@ -787,6 +822,7 @@ function Workspace({
                     board={board}
                     loading={boardLoading}
                     onOpen={(id) => void loadCase(id)}
+                    onMove={(item, target) => void moveCase(item, target)}
                   />
                 ) : (
                 <section className="ad-card">
@@ -867,22 +903,45 @@ function CaseBoard({
   board,
   loading,
   onOpen,
+  onMove,
 }: {
   board: Record<string, CaseData[]>;
   loading: boolean;
   onOpen: (id: string) => void;
+  onMove: (item: CaseData, target: string) => void;
 }) {
+  const [dragging, setDragging] = useState<CaseData | null>(null);
+  const [over, setOver] = useState<string | null>(null);
   const total = boardColumns.reduce((sum, column) => sum + (board[column.status]?.length || 0), 0);
   return (
     <section className="ad-board-wrap">
       <p className="ad-board-note">
-        欄位反映案件目前狀態。狀態變更是需要授權與稽核的決定，請開啟案件後在審查面板操作，卡片不支援拖曳。
+        拖曳卡片到下一欄即可推進流程。需要填寫金額、理由或完成紀錄的步驟會開啟案件，不會只靠拖曳完成核定；
+        每次變更都經過權限檢查並記入稽核軌跡。
       </p>
       <div className="ad-board" role="list">
         {boardColumns.map((column) => {
           const cases = board[column.status] || [];
+          const active = dragging && dragging.status !== column.status;
           return (
-            <div className="ad-board-col" role="listitem" key={column.status}>
+            <div
+              className={`ad-board-col${over === column.status && active ? ' is-over' : ''}`}
+              role="listitem"
+              key={column.status}
+              onDragOver={(event) => {
+                if (!active) return;
+                event.preventDefault();
+                setOver(column.status);
+              }}
+              onDragLeave={() => setOver((current) => (current === column.status ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                setOver(null);
+                const item = dragging;
+                setDragging(null);
+                if (item) onMove(item, column.status);
+              }}
+            >
               <header className="ad-board-head">
                 <div>
                   <h2>{caseLabels[column.status] || column.status}</h2>
@@ -896,7 +955,22 @@ function CaseBoard({
                     (task) => task.status === 'OPEN' || task.status === 'REOPENED',
                   ).length;
                   return (
-                    <button className="ad-board-card" key={item.id} onClick={() => onOpen(item.id)}>
+                    <button
+                      className={`ad-board-card${dragging?.id === item.id ? ' is-dragging' : ''}`}
+                      key={item.id}
+                      draggable
+                      onDragStart={(event) => {
+                        setDragging(item);
+                        event.dataTransfer.effectAllowed = 'move';
+                        // Firefox only starts a drag once some data is set.
+                        event.dataTransfer.setData('text/plain', item.case_no);
+                      }}
+                      onDragEnd={() => {
+                        setDragging(null);
+                        setOver(null);
+                      }}
+                      onClick={() => onOpen(item.id)}
+                    >
                       <strong>{textValue(item.form_data.name)}</strong>
                       <span className="ad-board-no">{item.case_no}</span>
                       <span className="ad-board-meta">
