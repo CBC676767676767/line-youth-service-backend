@@ -16,7 +16,10 @@ services:
       timeout: 3s
       retries: 20
   api:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_LIFF_ID: ${VITE_LIFF_ID:-}
     profiles: ["app"]
     env_file: .env
     environment:
@@ -32,7 +35,10 @@ services:
       db:
         condition: service_healthy
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_LIFF_ID: ${VITE_LIFF_ID:-}
     profiles: ["app"]
     env_file: .env
     environment:

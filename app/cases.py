@@ -17,6 +17,7 @@ from app.access import case_filter, case_for
 from app.auth import Principal, current_principal
 from app.common import ApiError, check_version, encode, etag, idem_finish, idem_start, ok
 from app.db import get_db, new_id, utcnow
+from app.files import file_metadata
 from app.models import (
     Account, AuditEvent, Case, CaseAccess, CaseRevision, ContentVersion, Decision,
     DomainEvent, File, FileVersion, IdempotencyRecord, NotificationIntent,
@@ -134,11 +135,31 @@ def _scheme(db: Session, scheme_id: str, *, active=False):
     return scheme
 
 
-def _public_scheme(scheme: Scheme):
+def _scheme_contract(scheme: Scheme, db: Session):
+    rule = db.get(ContentVersion, scheme.config.get("rule_version_id")) if scheme.config.get("rule_version_id") else None
+    rule_id = (rule.id if rule and rule.kind == "RULE" and rule.code == scheme.id
+               and rule.status == "PUBLISHED" else None)
+    return {"rule_version_id": rule_id,
+            "required_criteria": scheme.config.get("required_criteria", []),
+            "criterion_labels": scheme.config.get("criterion_labels", {}),
+            "required_document_types": scheme.config.get("required_document_types", []),
+            "conditional_document_requirements": scheme.config.get("conditional_document_requirements", [])}
+
+
+def _public_scheme(scheme: Scheme, db: Session):
     return {"id": scheme.id, "name": scheme.name, "description": scheme.description,
             "active": scheme.active, "schema_version": scheme.schema_version,
             "document_types": scheme.config.get("document_types", []),
-            "contact": scheme.config.get("contact", {})}
+            "contact": scheme.config.get("contact", {}), **_scheme_contract(scheme, db)}
+
+
+def _required_documents(scheme: Scheme, form_data: dict):
+    required = set(scheme.config.get("required_document_types", []))
+    for condition in scheme.config.get("conditional_document_requirements", []):
+        if (condition["field"] in form_data and
+                form_data[condition["field"]] == condition["equals"]):
+            required.update(condition["document_types"])
+    return required
 
 
 def _validate_form(scheme: Scheme, data: dict, *, draft: bool):
@@ -160,6 +181,10 @@ def _validate_form(scheme: Scheme, data: dict, *, draft: bool):
                 for value in node:
                     relax_required(value)
         relax_required(schema)
+        if scheme.config.get("allow_empty_draft_fields", False):
+            for key, field in schema.get("properties", {}).items():
+                if field.get("type") == "string":
+                    schema["properties"][key] = {"anyOf": [field, {"const": ""}]}
     errors = sorted(Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(data),
                     key=lambda item: str(list(item.path)))
     if errors:
@@ -285,6 +310,23 @@ def _files(db: Session, case: Case, ids: list[str], *, task_id=None, clean=False
     return versions
 
 
+def _case_files(db: Session, case_id: str, *, submitted_only=False):
+    """Call only after case authorization. Never disclose private storage keys."""
+    query = select(File, FileVersion).join(FileVersion, FileVersion.file_id == File.id).where(
+        File.case_id == case_id, FileVersion.uploaded_at.is_not(None),
+        FileVersion.sha256.is_not(None), FileVersion.object_key.is_not(None),
+    )
+    if submitted_only:
+        version_ids = {version_id for submission in db.scalars(
+            select(Submission).where(Submission.case_id == case_id))
+            for version_id in submission.file_version_ids}
+        if not version_ids:
+            return []
+        query = query.where(FileVersion.id.in_(version_ids))
+    return [file_metadata(file, version) for file, version in db.execute(
+        query.order_by(File.created_at, File.id, FileVersion.created_at, FileVersion.id))]
+
+
 def _receipt(db: Session, case: Case, p: Principal, body: SubmitCase, submitted_at: datetime,
              *, revision=None, task=None):
     submission = Submission(id=new_id(), case_id=case.id, task_id=task.id if task else None,
@@ -315,12 +357,12 @@ def list_schemes(request: Request, db: DB, active: bool = True):
     query = select(Scheme)
     if active:
         query = query.where(Scheme.active.is_(True))
-    return ok(request, {"items": [_public_scheme(s) for s in db.scalars(query.order_by(Scheme.id))]})
+    return ok(request, {"items": [_public_scheme(s, db) for s in db.scalars(query.order_by(Scheme.id))]})
 
 
 @router.get("/schemes/{scheme_id}")
 def get_scheme(scheme_id: str, request: Request, db: DB):
-    return ok(request, _public_scheme(_scheme(db, scheme_id)))
+    return ok(request, _public_scheme(_scheme(db, scheme_id), db))
 
 
 @router.get("/schemes/{scheme_id}/form-schema")
@@ -330,7 +372,8 @@ def get_form_schema(scheme_id: str, request: Request, db: DB, p: User,
     if schema_version is not None and schema_version != scheme.schema_version:
         raise ApiError(404, "SCHEMA_VERSION_NOT_FOUND", "目前沒有此表單版本。")
     return ok(request, {"schema_version": scheme.schema_version, "form_schema": scheme.form_schema,
-                        "document_types": scheme.config.get("document_types", [])})
+                        "document_types": scheme.config.get("document_types", []),
+                        **_scheme_contract(scheme, db)})
 
 
 @router.post("/cases")
@@ -377,6 +420,7 @@ def list_cases(request: Request, db: DB, p: User, status: str | None = None,
 def get_case(case_id: str, request: Request, db: DB, p: User):
     case = _applicant_case(db, p, case_id)
     data = _case_view(case, p, db=db)
+    data["files"] = _case_files(db, case_id)
     data["tasks"] = [_task_view(t, db=db, p=p) for t in db.scalars(select(Task).where(Task.case_id == case_id))]
     superseded = select(Decision.supersedes_id).where(Decision.supersedes_id.is_not(None))
     decision = db.scalar(select(Decision).where(Decision.case_id == case_id, Decision.id.notin_(superseded)))
@@ -419,8 +463,12 @@ def submit_case(case_id: str, body: SubmitCase, request: Request, db: DB, p: Use
     _validate_form(scheme, case.form_data, draft=False)
     files = _files(db, case, body.file_version_ids)
     document_types = {db.get(File, item.file_id).document_type for item in files}
-    if not set(scheme.config.get("required_document_types", [])).issubset(document_types):
-        raise ApiError(422, "REQUIRED_DOCUMENT_MISSING", "尚未提供方案要求的文件。")
+    missing = _required_documents(scheme, case.form_data) - document_types
+    if missing:
+        raise ApiError(422, "REQUIRED_DOCUMENT_MISSING", "尚未提供方案要求的文件。", [
+            {"field": "file_version_ids", "message": f"缺少文件類別：{document_type}"}
+            for document_type in sorted(missing)
+        ])
     now = _database_time(db)
     case.current_revision_no += 1
     revision = CaseRevision(id=new_id(), case_id=case.id, revision_no=case.current_revision_no,
@@ -797,6 +845,7 @@ def staff_case_detail(case_id: str, request: Request, db: DB, p: User):
                               .order_by(CaseRevision.revision_no))]
     data["submissions"] = [_submission_view(db, s) for s in db.scalars(
         select(Submission).where(Submission.case_id == case_id).order_by(Submission.submitted_at))]
+    data["files"] = _case_files(db, case_id, submitted_only=True)
     data["decisions"] = [_decision_view(d) for d in db.scalars(
         select(Decision).where(Decision.case_id == case_id).order_by(Decision.decided_at, Decision.id))]
     return ok(request, data, headers={"ETag": etag(case)})

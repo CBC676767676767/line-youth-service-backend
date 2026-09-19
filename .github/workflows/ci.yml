@@ -1,4 +1,4 @@
-name: Backend checks
+name: Application checks
 
 on:
   push:
@@ -11,11 +11,22 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend locked install, tests and both web entries
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
@@ -29,6 +40,8 @@ jobs:
         run: |
           ruff check app tests scripts migrations
           pytest -o addopts='' --cov=app --cov-report=term-missing -q
+      - name: Isolated grant HTTP workflow and separate web entries
+        run: python scripts/web_smoke.py smoke --require-web
       - name: PostgreSQL migration and real HTTP workflow
         run: |
           python -m app.cli init
@@ -40,7 +53,11 @@ jobs:
           api_pid=$!
           trap 'kill "$api_pid"' EXIT
           curl --fail --retry 10 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/health/ready
+          curl --fail --silent --output /dev/null http://127.0.0.1:8000/
+          curl --fail --silent --output /dev/null http://127.0.0.1:8000/admin/
           python scripts/smoke.py
+      - name: Build the Python runtime image with bundled frontend
+        run: docker build --tag youth-service:ci .
       - name: Stop development database
         if: always()
         run: docker compose down

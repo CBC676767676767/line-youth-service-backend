@@ -1,8 +1,49 @@
-# 青年申請與案件服務平台後端
+# 竹青通｜新竹青年 AI 補助與案件服務
 
-以官方 LINE 作為通知入口，提供申請、補件、案件進度與承辦審查的 API。本專案已實作可執行的核心後端與測試流程；目前沒有青年端、LIFF 或承辦前端畫面，也不代表四份規劃文件的全部需求均已完成。
+以 LINE 作為服務入口，協助青年申請 AI 工具補助、核對文件、補正與追蹤進度，並讓承辦以明確依據完成審查。本儲存庫包含民眾網站、獨立管理後台與既有案件 API。登入、案件、附件、補件及核定均使用伺服器紀錄；目前尚未連接市府正式收件或出納系統。
 
-技術組合為 Python 3.12、FastAPI、SQLAlchemy 2、PostgreSQL 17、Alembic，以及獨立背景 worker。附件保存在私有本機目錄；容器模式使用共享 named volume。實作範圍、驗證證據及待辦詳見 [實作狀態](docs/implementation-status.md)。
+技術組合為 React／TypeScript／Vite 雙入口前端、瀏覽器內 Tesseract OCR，以及 Python 3.12、FastAPI、SQLAlchemy 2、PostgreSQL 17、Alembic 和獨立背景 worker。附件保存在私有本機目錄；容器模式使用共享 named volume。實作範圍、驗證證據及待辦詳見 [實作狀態](docs/implementation-status.md)。
+
+
+## 團隊同步與兩個入口
+
+本次網站整合分支為 `feat/hsinchu-youth-web-portals`。已有 clone 的成員可先保留自己的未提交變更，再執行：
+
+```bash
+git fetch origin
+git switch feat/hsinchu-youth-web-portals
+git pull --ff-only
+```
+
+- 民眾端：`http://127.0.0.1:8000/`，信箱驗證、補助申請、本機證件／收據文字辨識、附件上傳、進度及補件、安全學堂。
+- 管理端：`http://127.0.0.1:8000/admin/`，獨立 HTML 與 JavaScript 入口，密碼＋TOTP 登入；無民眾／承辦角色切換。
+- `admin` 是帳號管理權限；`reviewer`／`supervisor`／`auditor` 的案件存取仍依方案、指派與逐案授權。知道網址不會取得 API 權限。
+- 同一瀏覽器的兩頁沿用既有同源 Cookie；若要同時操作民眾與主管，請用不同瀏覽器設定檔或無痕視窗。
+
+完成下方後端安裝與遷移後，加入前端建置及補助方案：
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+cd ..
+.venv/bin/python -m app.cli seed-grant
+.venv/bin/python -m app.cli create-staff --email supervisor@example.org --role supervisor --scheme-id hsinchu-ai-grant-2026
+.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+`create-staff` 的一次性憑證請私下保存；既有帳號不會被覆寫或自動擴權。新建補助方案也不會改寫原本 `youth-demo` 資料。
+
+兩個入口由同一 FastAPI 服務提供，正式執行只需要 Python runtime；Docker 使用 Node 建置前端後複製產物，不新增 Node 常駐服務。開發代理、LIFF 設定與上線步驟見 [網站部署](docs/web-deployment.md)，方案欄位及文件要求見 [補助方案](docs/grant-program.md)。
+
+## 這次交付與主題的關係
+
+- **行政效能**：裝置內 OCR 擷取姓名、字號、生日與地址，申請人核對後帶入；文件類別與必要附件在伺服器再次檢查。OCR 不自動核定，也不代替戶政或本人驗證。
+- **透明進度**：申請與補件均產生不可變收件回執；案件事件、承辦理由與通知沿用既有後端，不能由民眾網頁任意更改狀態。
+- **LINE 串聯**：四個選單 URI 對應申請、進度、補件、安全學堂；已配置 LIFF 時可經既有後端驗證 ID token 登入／綁定。實際官方帳號、Rich Menu 與 HTTPS endpoint 尚需機關設定及真機驗收。
+- **AI 安全素養**：申請中提供安全提醒；安全學堂包含工具風險清單、測驗、個資遮蔽練習、一頁式圖卡及事件案例。學習勾選目前不作補助自動核准條件，亦未納入政府資安認證。
+- **經費核銷及撥款邊界**：已可收集付款依據與審查證據；完整核銷帳務及匯款仍待出納介接。後端 `DECIDED`／`CLOSED` 不會被顯示為已匯款。
 
 ## 已實作的核心流程
 
@@ -118,6 +159,8 @@ docker compose --profile app up -d api worker
 
 | 位置 | 用途 |
 | --- | --- |
+| [frontend](frontend) | 民眾與管理端獨立入口，共用本機 OCR、樣式及 API client |
+| [app/web.py](app/web.py) | 限定路徑的前端與靜態資源服務 |
 | [app/main.py](app/main.py) | 應用程式、共用錯誤、CORS 與健康檢查 |
 | [app/cases.py](app/cases.py) | 申請、任務、回執、審查與決定 |
 | [app/files.py](app/files.py) | 授權上傳與下載；私有儲存見 `app/storage.py` |

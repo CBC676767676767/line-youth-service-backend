@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="竹青通提案新增 AI 安全懶人包：資料、入口、權限與查證。自願學習，不影響官方補助資格。" />
+  <title>AI 安全先一步｜竹青通一頁式懶人包</title>
+  <style>
+    :root { color-scheme: light; --green: #234e3b; --ink: #244333; --muted: #687765; --cream: #f9f7ed; --line: #dce2d2; }
+    * { box-sizing: border-box; }
+    html { background: #e7ebe3; }
+    body { margin: 0; color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-underline-offset: 3px; }
+    .toolbar { width: min(210mm, calc(100% - 32px)); margin: 22px auto 15px; display: flex; justify-content: space-between; align-items: center; gap: 14px; font-size: 12px; }
+    .toolbar p { margin: 0; color: #667364; }
+    .toolbar button { font: inherit; font-weight: 600; color: #fff; background: var(--green); border: 0; border-radius: 9px; padding: 11px 17px; cursor: pointer; white-space: nowrap; }
+    .toolbar button:focus-visible, a:focus-visible { outline: 3px solid #809868; outline-offset: 4px; }
+    .sheet { width: 210mm; min-height: 297mm; margin: 0 auto 28px; padding: 11mm 15mm 9mm; background: var(--cream); box-shadow: 0 8px 35px #21372418; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+    .brand-row { display: flex; justify-content: space-between; align-items: center; gap: 15px; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+    .brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 16px; letter-spacing: -.03em; }
+    .brand svg { width: 25px; height: 25px; }
+    .brand span { font-weight: 400; font-size: 11px; color: var(--muted); padding-left: 12px; margin-left: 3px; border-left: 1px solid #bfc9b5; letter-spacing: .02em; }
+    .edition { font-size: 10px; letter-spacing: .1em; color: #778570; white-space: nowrap; }
+    header { position: relative; padding: 20px 0 16px; }
+    .kicker { margin: 0 0 10px; color: #77905c; font-size: 10px; font-weight: 650; letter-spacing: .13em; }
+    h1 { position: relative; font-weight: 650; font-size: 43px; line-height: 1.2; letter-spacing: -.055em; margin: 0 0 13px; z-index: 1; }
+    h1 em { font-style: normal; color: #76944e; }
+    header > p:last-of-type { position: relative; margin: 0; font-size: 13px; line-height: 1.85; color: #65745f; z-index: 1; }
+    .hero-symbol { position: absolute; right: 4px; top: 26px; width: 131px; height: 144px; transform: rotate(10deg); color: #dbe3c7; }
+    .hero-symbol svg { width: 100%; height: 100%; }
+    .section-label { font-size: 11px; margin: 0 0 12px; font-weight: 600; letter-spacing: .1em; color: #657b4d; }
+    .steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .step { border: 1px solid var(--line); background: #fffef8; padding: 15px 17px 14px; border-radius: 11px; }
+    .step-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .number { font-size: 11px; font-weight: 600; letter-spacing: .03em; border-radius: 50%; background: #eaf0dd; width: 29px; height: 29px; display: grid; place-items: center; color: #6c8650; flex-shrink: 0; }
+    h2 { font-size: 18px; font-weight: 600; margin: 0; letter-spacing: -.03em; }
+    .step p { font-size: 12px; color: #66745f; line-height: 1.85; margin: 0; }
+    .three-no { background: var(--green); color: #f4f3dc; border-radius: 12px; padding: 16px 19px; margin: 14px 0; }
+    .three-no-title { font-size: 11px; letter-spacing: .06em; color: #bccc9e; margin: 0 0 13px; display: flex; align-items: center; gap: 9px; }
+    .three-no-title span { height: 1px; background: #ffffff22; flex: 1; }
+    .dont-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .dont-grid div { border-left: 1px solid #ffffff25; padding-left: 13px; }
+    .dont-grid div:first-child { border: 0; padding-left: 0; }
+    .dont-grid strong { display: block; font-weight: 550; font-size: 14px; margin-bottom: 5px; }
+    .dont-grid p { font-size: 10px; line-height: 1.7; color: #cbd7b9; margin: 0; }
+    .case-heading { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; margin: 0 0 10px; }
+    .case-heading h2 { font-size: 15px; }
+    .case-heading span { color: #89917c; font-size: 10px; }
+    .cases { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 17px; }
+    .case { border-top: 2px solid #bdcb9f; padding-top: 10px; }
+    .case time { font-size: 9px; color: #849270; letter-spacing: .055em; }
+    .case h3 { margin: 6px 0; font-size: 13px; font-weight: 600; }
+    .case p { margin: 0; font-size: 10.5px; color: #6a775f; line-height: 1.8; }
+    .case-note { margin: 9px 0 0; font-size: 9px; line-height: 1.7; color: #858c7b; }
+    .response { padding: 12px 15px; margin-top: 13px; background: #eeefdf; border-radius: 9px; display: flex; gap: 13px; align-items: flex-start; }
+    .response strong { font-size: 11px; white-space: nowrap; padding-top: 1px; }
+    .response p { font-size: 10.5px; line-height: 1.8; color: #68745e; margin: 0; }
+    .sources { margin-top: 13px; }
+    .sources h2 { font-size: 10px; letter-spacing: .06em; margin: 0 0 7px; color: #7d886f; }
+    .sources ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; }
+    .sources li { font-size: 8.5px; line-height: 1.65; color: #808877; }
+    .sources a { text-decoration: none; border-bottom: 1px solid #d4d8c7; }
+    .sources a:hover { color: var(--green); }
+    footer { padding-top: 10px; margin-top: auto; }
+    .notice { border-top: 1px solid var(--line); padding-top: 12px; font-size: 10px; line-height: 1.85; }
+    .notice strong { font-weight: 600; }
+    .footer-row { margin-top: 9px; display: flex; justify-content: space-between; gap: 15px; color: #8f9584; font-size: 8px; letter-spacing: .04em; }
+    @media screen and (max-width: 820px) {
+      .sheet { width: calc(100% - 24px); min-height: auto; padding: 28px; }
+      .toolbar { width: calc(100% - 30px); }
+      .toolbar p { max-width: 190px; line-height: 1.65; }
+      footer { margin-top: 17px; }
+    }
+    @media screen and (max-width: 500px) {
+      .sheet { padding: 23px; }
+      .brand span { display: none; }
+      h1 { font-size: 36px; }
+      .hero-symbol { width: 95px; right: -12px; top: 24px; opacity: .7; }
+      .steps, .cases { grid-template-columns: 1fr; }
+      .step p { font-size: 13px; }
+      .dont-grid { grid-template-columns: 1fr; gap: 12px; }
+      .dont-grid div { border: 0; padding: 0; }
+      .dont-grid p { font-size: 11px; }
+      .case p { font-size: 12px; }
+      .case-note, .notice { font-size: 10px; }
+      .sources ol { grid-template-columns: 1fr; }
+      .sources li { font-size: 10px; }
+      .response { flex-direction: column; gap: 5px; }
+      .response p { font-size: 11px; }
+    }
+    @page { size: A4 portrait; margin: 0; }
+    @media print {
+      html, body { background: white; }
+      .toolbar { display: none; }
+      .sheet { width: 210mm; min-height: 297mm; margin: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .step, .three-no, .case, .response, .sources, footer { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar"><p>一頁式 AI 安全提醒，可列印或另存 PDF。</p><button type="button" onclick="window.print()">列印／另存 PDF</button></div>
+  <main class="sheet">
+    <div class="brand-row"><div class="brand"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="9" fill="#e2eacb" /><path d="M20 7c-7-1-12 3-11 8 1 5 9 5 11-8Z" stroke="#446941" stroke-width="1.5"/><path d="m8 21 9-10" stroke="#446941" stroke-width="1.5" stroke-linecap="round"/></svg>竹青通<span>AI 安全學堂</span></div><div class="edition">隨身安全指南 / 01</div></div>
+    <header>
+      <p class="kicker">先停一下，安心開始。</p>
+      <h1>好工具，也要<br /><em>用得安心。</em></h1>
+      <p>送出之前，多確認一步。<br />讓 AI 幫忙，也把資料與帳號的主導權留在手上。</p>
+      <div class="hero-symbol" aria-hidden="true"><svg viewBox="0 0 120 140" fill="none"><path d="M60 7 108 26v42c0 27-25 51-48 64C37 119 12 95 12 68V26L60 7Z" fill="currentColor"/><path d="m39 68 15 15 29-35" stroke="#f9f7ed" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    </header>
+    <section aria-label="安全四步">
+      <p class="section-label">安全四步 · 從下一次操作開始</p>
+      <div class="steps">
+        <article class="step"><div class="step-heading"><span class="number">01</span><h2>資料先減量</h2></div><p>先用虛構範例練習。真實證件、帳密、金鑰與未公開資料，不交給未經評估的工具。</p></article>
+        <article class="step"><div class="step-heading"><span class="number">02</span><h2>入口先確認</h2></div><p>從已確認的官方網站開啟；陌生訊息催你登入或索取驗證碼，先停下來查證。</p></article>
+        <article class="step"><div class="step-heading"><span class="number">03</span><h2>權限先收斂</h2></div><p>開啟多因素驗證。雲端先給必要或唯讀權限；寄信、分享、付款前，保留人工確認。</p></article>
+        <article class="step"><div class="step-heading"><span class="number">04</span><h2>答案再查證</h2></div><p>補助條件、金額與重要建議，回到原始公告核對日期。AI 說得肯定，也可能出錯。</p></article>
+      </div>
+    </section>
+    <section class="three-no" aria-label="記住三個不要">
+      <p class="three-no-title">記住這 3 不 <span></span></p>
+      <div class="dont-grid"><div><strong>不貼敏感資料</strong><p>改檔名，不等於移除個資。</p></div><div><strong>不盲信 AI 答案</strong><p>有引用，也要打開原文確認。</p></div><div><strong>不放任對外操作</strong><p>外部文件的指令，不是你的授權。</p></div></div>
+    </section>
+    <section aria-labelledby="case-title">
+      <div class="case-heading"><h2 id="case-title">兩個歷史事件，一個日常提醒</h2><span>敏感資料，先少給一點。</span></div>
+      <div class="cases">
+        <article class="case"><time datetime="2023-03-24">2023.03 / OpenAI 公開說明</time><h3>ChatGPT 跨帳號資料可見 [1]</h3><p>程式庫錯誤使部分對話標題及付款資訊可能被他人看到。官方表示已修補；完整信用卡號未暴露。</p></article>
+        <article class="case"><time datetime="2025-01-29">2025.01 / Wiz 原始研究</time><h3>DeepSeek 資料庫暴露 [2]</h3><p>研究者發現未要求驗證的資料庫，含對話與金鑰等日誌；通報後已封閉。日誌筆數不等於受害者人數。</p></article>
+      </div>
+      <p class="case-note">以上是當時揭露的事件，不是現今產品仍不安全的證明，也不能用來推論所有部署方式。</p>
+    </section>
+    <aside class="response"><strong>發現誤傳時</strong><p>先停止分享或連接，循官方支援管道處理。帳密或金鑰外露時立即撤銷或更換；不要為了求助，再公開貼出原始資料。</p></aside>
+    <section class="sources" aria-labelledby="source-title"><h2 id="source-title">原始來源 · 點擊可閱讀</h2><ol><li>[1] <a href="https://openai.com/index/march-20-chatgpt-outage/" target="_blank" rel="noreferrer">OpenAI：2023/03/20 事件說明 · openai.com</a></li><li>[2] <a href="https://www.wiz.io/blog/wiz-research-uncovers-exposed-deepseek-database-leak" target="_blank" rel="noreferrer">Wiz：DeepSeek 資料庫暴露研究 · wiz.io</a></li><li>[3] <a href="https://www.ncsc.gov.uk/blog-post/chatgpt-and-large-language-models-whats-the-risk" target="_blank" rel="noreferrer">英國 NCSC：大型語言模型風險 · ncsc.gov.uk</a></li><li>[4] <a href="https://www.ncsc.gov.uk/collection/guidelines-secure-ai-system-development/guidelines/secure-design" target="_blank" rel="noreferrer">英國 NCSC：AI 安全設計指引 · ncsc.gov.uk</a></li><li>[5] <a href="https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/require-multifactor-authentication" target="_blank" rel="noreferrer">美國 CISA：多因素驗證指引 · cisa.gov</a></li><li>[6] <a href="https://www.cisa.gov/sites/default/files/2024-09/Secure-Our-World-4-Easy-Ways-Stay-Safe-Online-Tip-Sheet.pdf" target="_blank" rel="noreferrer">美國 CISA：日常上網安全提醒 · cisa.gov</a></li></ol></section>
+    <footer><div class="notice"><strong>提案新增教材 · 自願學習 · 不是安全認證</strong><br />是否閱讀、測驗分數與檢核結果，均不影響官方補助資格、收件或審查。</div><div class="footer-row"><span>竹青通｜青年 AI 補助服務設計提案 · 非官方申辦入口</span><span>資料查核 2026.09.19</span></div></footer>
+  </main>
+</body>
+</html>

@@ -14,9 +14,11 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="Create a private .env; never overwrite an existing one")
     commands.add_parser("seed", help="Seed the demonstration scheme")
+    commands.add_parser("seed-grant", help="Seed the separate 2026 Hsinchu grant scheme")
     staff = commands.add_parser("create-staff")
     staff.add_argument("--email", required=True)
     staff.add_argument("--role", required=True, choices=["reviewer", "supervisor", "admin", "auditor"])
+    staff.add_argument("--scheme-id", default="youth-demo", help="Scheme scope for reviewer/supervisor/auditor")
     worker = commands.add_parser("worker")
     worker.add_argument("--once", action="store_true")
     commands.add_parser("show-mail", help="Read local development mail; disabled in production")
@@ -60,11 +62,20 @@ def main():
                 break
             time.sleep(settings.worker_poll_seconds)
         return
-    from app.bootstrap import create_staff, seed_scheme
+    from app.bootstrap import create_staff, seed_grant_scheme, seed_scheme
     with factory() as db:
+        if args.command == "seed-grant":
+            seed_grant_scheme(db)
+            db.commit()
+            print("Grant scheme hsinchu-ai-grant-2026 is ready; not an official government connection.")
+            engine.dispose()
+            return
         seed_scheme(db)
         if args.command == "create-staff":
-            credentials = create_staff(db, settings, args.email, args.role)
+            try:
+                credentials = create_staff(db, settings, args.email, args.role, scheme_id=args.scheme_id)
+            except ValueError as exc:
+                parser.exit(1, f"{exc}\n")
             db.commit()
             print(json.dumps(credentials, ensure_ascii=False, indent=2))
             print("Record these one-time enrollment credentials privately; the API never returns them.")

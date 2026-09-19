@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./var/youth.db"
     public_origin: str = "http://127.0.0.1:8000"
     allowed_origins: list[str] = ["http://127.0.0.1:8000", "http://localhost:8000"]
+    frontend_dist: Path = Path(__file__).resolve().parent.parent / "frontend" / "dist"
     secret_key: str = ""
     totp_encryption_key: str = ""
     secrets_file: Path = Path("var/development-secrets.json")
