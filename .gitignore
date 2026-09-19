@@ -24,3 +24,5 @@ dist/
 node_modules/
 playwright-report/
 test-results/
+# Per-developer tooling state; it conflicts between teammates and is not source.
+.omx/
