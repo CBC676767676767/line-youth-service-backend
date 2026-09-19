@@ -31,6 +31,21 @@ def test_production_refuses_development_adapters():
         Settings(app_env="production", _env_file=None, secret_key="test" * 10)
 
 
+def test_fixed_demo_otp_cannot_reach_production_or_real_mail():
+    """A predictable code is an authentication bypass; only a spooled demo may use it."""
+    import pytest
+    from cryptography.fernet import Fernet
+    base = dict(_env_file=None, secret_key="testing-secret-" * 4,
+                totp_encryption_key=Fernet.generate_key().decode())
+    assert Settings(app_env="development", demo_fixed_otp="698217", **base).demo_fixed_otp == "698217"
+    for bad in [dict(app_env="test", demo_fixed_otp="698217"),
+                dict(app_env="development", demo_fixed_otp="698217", mail_backend="smtp"),
+                dict(app_env="development", demo_fixed_otp="69821"),
+                dict(app_env="development", demo_fixed_otp="abcdef")]:
+        with pytest.raises(ValueError):
+            Settings(**{**base, **bad})
+
+
 def test_main_routes_health_body_limits_and_cors(tmp_path):
     from cryptography.fernet import Fernet
     from fastapi.testclient import TestClient

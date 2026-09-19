@@ -4,10 +4,13 @@ import {
   ArrowRight,
   Check,
   ClipboardCheck,
+  Clock,
+  Columns3 as Columns,
   Download,
   FileText,
   FolderOpen,
   Leaf,
+  List as ListIcon,
   LockKeyhole,
   LogOut,
   Plus,
@@ -32,6 +35,16 @@ import {
 
 const staffRoles = ['reviewer', 'supervisor', 'auditor', 'admin'];
 const caseRoles = ['reviewer', 'supervisor', 'auditor'];
+
+/** Board columns follow the case lifecycle. Cards are never dragged between them:
+ *  a status change is a reviewed decision with authorization, an If-Match version
+ *  check and an audit entry, so it happens in the case panel, not by dropping a card. */
+const boardColumns: { status: string; hint: string; tone: string }[] = [
+  { status: 'RECEIVED', hint: '等待承辦開始審查', tone: 'amber' },
+  { status: 'UNDER_REVIEW', hint: '審查中，可能需要補件', tone: '' },
+  { status: 'DECIDED', hint: '已核定，待結案', tone: 'neutral' },
+  { status: 'CLOSED', hint: '流程已完成', tone: 'neutral' },
+];
 const roleLabels: Record<string, string> = {
   reviewer: '承辦人員',
   supervisor: '業務主管',
@@ -483,6 +496,10 @@ function Workspace({
   const canReadCases = me.roles.some((role) => caseRoles.includes(role));
   const canManageAccounts = me.roles.includes('admin');
   const [view, setView] = useState<'cases' | 'accounts'>(canReadCases ? 'cases' : 'accounts');
+  const [layout, setLayout] = useState<'board' | 'list'>('board');
+  const [board, setBoard] = useState<Record<string, CaseData[]>>({});
+  const [boardLoading, setBoardLoading] = useState(false);
+  const boardSequence = useRef(0);
   const [items, setItems] = useState<CaseData[]>([]);
   const [status, setStatus] = useState('RECEIVED');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -504,6 +521,32 @@ function Workspace({
       listSequence.current++;
     };
   }, []);
+
+  const loadBoard = useCallback(async () => {
+    if (!canReadCases) return;
+    const turn = ++boardSequence.current;
+    setBoardLoading(true);
+    setError('');
+    try {
+      // One request per column. A column that the account cannot read fails on its
+      // own and shows as empty; it must not blank out the whole board.
+      const pages = await Promise.all(
+        boardColumns.map((column) =>
+          api<Page<CaseData>>(`/staff/cases?limit=50&status=${column.status}`)
+            .then((page) => page.items)
+            .catch(() => [] as CaseData[]),
+        ),
+      );
+      if (!alive.current || turn !== boardSequence.current) return;
+      const next: Record<string, CaseData[]> = {};
+      boardColumns.forEach((column, index) => {
+        next[column.status] = pages[index];
+      });
+      setBoard(next);
+    } finally {
+      if (alive.current && turn === boardSequence.current) setBoardLoading(false);
+    }
+  }, [canReadCases]);
 
   const loadCases = useCallback(
     async (cursor?: string) => {
@@ -529,8 +572,10 @@ function Workspace({
     [canReadCases, status],
   );
   useEffect(() => {
-    if (view === 'cases' && !selectedId) void loadCases();
-  }, [view, selectedId, loadCases]);
+    if (view !== 'cases' || selectedId) return;
+    if (layout === 'board') void loadBoard();
+    else void loadCases();
+  }, [view, selectedId, layout, loadBoard, loadCases]);
 
   async function loadCase(id: string) {
     const turn = ++requestSequence.current;
@@ -711,10 +756,39 @@ function Workspace({
                     <h1>案件工作台</h1>
                     <p>只顯示你有權存取的案件，開啟後可核對文件與處理補件。</p>
                   </div>
-                  <button className="ad-btn" onClick={() => void loadCases()} disabled={loading}>
-                    <RefreshCw size={16} /> 更新列表
-                  </button>
+                  <div className="ad-heading-actions">
+                    <div className="ad-segmented" role="group" aria-label="檢視方式">
+                      <button
+                        className={layout === 'board' ? 'is-active' : ''}
+                        aria-pressed={layout === 'board'}
+                        onClick={() => setLayout('board')}
+                      >
+                        <Columns size={15} /> 看板
+                      </button>
+                      <button
+                        className={layout === 'list' ? 'is-active' : ''}
+                        aria-pressed={layout === 'list'}
+                        onClick={() => setLayout('list')}
+                      >
+                        <ListIcon size={15} /> 列表
+                      </button>
+                    </div>
+                    <button
+                      className="ad-btn"
+                      onClick={() => (layout === 'board' ? void loadBoard() : void loadCases())}
+                      disabled={loading || boardLoading}
+                    >
+                      <RefreshCw size={16} /> 更新
+                    </button>
+                  </div>
                 </div>
+                {layout === 'board' ? (
+                  <CaseBoard
+                    board={board}
+                    loading={boardLoading}
+                    onOpen={(id) => void loadCase(id)}
+                  />
+                ) : (
                 <section className="ad-card">
                   <div className="ad-list-toolbar">
                     <Field label="案件狀態">
@@ -779,12 +853,75 @@ function Workspace({
                     </button>
                   )}
                 </section>
+                )}
               </>
             )}
           </fieldset>
         </main>
       </div>
     </div>
+  );
+}
+
+function CaseBoard({
+  board,
+  loading,
+  onOpen,
+}: {
+  board: Record<string, CaseData[]>;
+  loading: boolean;
+  onOpen: (id: string) => void;
+}) {
+  const total = boardColumns.reduce((sum, column) => sum + (board[column.status]?.length || 0), 0);
+  return (
+    <section className="ad-board-wrap">
+      <p className="ad-board-note">
+        欄位反映案件目前狀態。狀態變更是需要授權與稽核的決定，請開啟案件後在審查面板操作，卡片不支援拖曳。
+      </p>
+      <div className="ad-board" role="list">
+        {boardColumns.map((column) => {
+          const cases = board[column.status] || [];
+          return (
+            <div className="ad-board-col" role="listitem" key={column.status}>
+              <header className="ad-board-head">
+                <div>
+                  <h2>{caseLabels[column.status] || column.status}</h2>
+                  <p>{column.hint}</p>
+                </div>
+                <Badge tone={cases.length ? column.tone : 'neutral'}>{cases.length}</Badge>
+              </header>
+              <div className="ad-board-cards">
+                {cases.map((item) => {
+                  const open = (item.tasks || []).filter(
+                    (task) => task.status === 'OPEN' || task.status === 'REOPENED',
+                  ).length;
+                  return (
+                    <button className="ad-board-card" key={item.id} onClick={() => onOpen(item.id)}>
+                      <strong>{textValue(item.form_data.name)}</strong>
+                      <span className="ad-board-no">{item.case_no}</span>
+                      <span className="ad-board-meta">
+                        <Clock size={12} /> {date(item.last_business_update_at)}
+                      </span>
+                      {open > 0 && <Badge tone="amber">待補件 {open}</Badge>}
+                    </button>
+                  );
+                })}
+                {!cases.length && (
+                  <p className="ad-board-empty">{loading ? '讀取中…' : '目前沒有案件'}</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!total && !loading && (
+        <div className="ad-empty">
+          <FolderOpen size={32} />
+          <h2>還沒有可顯示的案件</h2>
+          <p>承辦帳號需先取得案件分派或存取授權，才會在這裡看到申請。</p>
+        </div>
+      )}
+    </section>
   );
 }
 

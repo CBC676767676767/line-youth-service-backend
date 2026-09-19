@@ -278,7 +278,10 @@ def _create_email_challenge(request: Request, db: Session, email: str, purpose: 
     _throttle(request, db, "email-send", email)
     settings = request.app.state.settings
     now, challenge_id = utcnow(), new_id()
-    code = f"{secrets.randbelow(1_000_000):06d}"
+    # A fixed code makes a walkthrough repeatable when mail only reaches the local
+    # spool. It is worthless as authentication -- anyone who knows it can claim any
+    # mailbox -- so Settings refuses it outside development.
+    code = settings.demo_fixed_otp or f"{secrets.randbelow(1_000_000):06d}"
     # A resend replaces active challenges of the same purpose; it never extends
     # an existing code's validity.
     db.execute(update(EmailChallenge).where(

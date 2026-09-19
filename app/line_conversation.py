@@ -282,6 +282,52 @@ def _source(bundle, now):
     return text
 
 
+def _source_parts(bundle, now):
+    """The same provenance facts as _source, kept separate so a card can lay them out."""
+    current = datetime.fromtimestamp(_time(now), TAIPEI).date()
+    notice = "公開來源整理，未經機關核定。" if bundle.snapshot else "演示／待確認規則。"
+    stale = not bundle.rules.valid_from <= current <= bundle.rules.valid_until
+    return {"notice": notice,
+            "stale": "此版本目前不在有效期間，請確認最新公告。" if stale else "",
+            "version": bundle.rules.version,
+            "title": bundle.rules.source.title}
+
+
+def _row(label, value):
+    return {"type": "box", "layout": "baseline", "spacing": "sm", "contents": [
+        {"type": "text", "text": label, "size": "sm", "color": "#64748B", "flex": 4},
+        {"type": "text", "text": value, "size": "sm", "color": "#1E293B", "flex": 8, "wrap": True},
+    ]}
+
+
+def _detail_flex(title, lead, rows, notes, provenance, *, color="#245B78", buttons=None, alt=None):
+    """A card with structured rows, so provenance reads as a footnote and not as body text."""
+    body = [{"type": "text", "text": title, "weight": "bold", "size": "lg", "color": color, "wrap": True}]
+    if lead:
+        body.append({"type": "text", "text": lead, "size": "xs", "color": "#64748B", "wrap": True})
+    if rows:
+        body.append({"type": "separator", "margin": "lg", "color": "#E2E8F0"})
+        body.append({"type": "box", "layout": "vertical", "margin": "lg", "spacing": "sm",
+                     "contents": [_row(label, value) for label, value in rows]})
+    for note in notes:
+        body.append({"type": "text", "text": note, "size": "xs", "color": "#475569", "wrap": True, "margin": "md"})
+    footer_lines = [{"type": "text", "text": provenance["notice"] + provenance["stale"],
+                     "size": "xxs", "color": "#94A3B8", "wrap": True},
+                    {"type": "text", "text": f"規則版本 {provenance['version']}",
+                     "size": "xxs", "color": "#94A3B8", "wrap": True},
+                    {"type": "text", "text": provenance["title"],
+                     "size": "xxs", "color": "#94A3B8", "wrap": True}]
+    body.append({"type": "separator", "margin": "lg", "color": "#E2E8F0"})
+    body.append({"type": "box", "layout": "vertical", "margin": "md", "spacing": "xs", "contents": footer_lines})
+    contents = {"type": "bubble",
+                "body": {"type": "box", "layout": "vertical", "contents": body}}
+    if buttons:
+        contents["footer"] = {"type": "box", "layout": "vertical", "spacing": "sm", "contents": [
+            {"type": "button", "style": "secondary", "height": "sm", "action": action} for action in buttons
+        ]}
+    return {"type": "flex", "altText": _short(alt or title, 400), "contents": contents}
+
+
 def failure_reply():
     return [_text("本次聊天操作暫時無法完成，未代為送件。請稍後重試，或輸入「選單」返回服務。", [_action("選單")])]
 
@@ -298,28 +344,29 @@ def _rules_reply(bundle, now):
     params = bundle.rules.params
     title = "公開補助規則摘要" if bundle.snapshot else (
         "DEMO／合成規則摘要" if bundle.rules.status == "demo" else "待確認規則摘要")
-    lines = [
-        "以下為規則資料摘要，不是個人適用判定，也不代表正式送件或核定。",
-        "設籍條件：新竹市；自填仍須核對文件。",
-        f"出生日期區間：{params.birth_date_from} 至 {params.birth_date_until}（含首尾）。",
-        f"購買日期區間：{params.purchase_date_from} 至 {params.purchase_date_until}（含首尾）。",
+    rows = [
+        ("設籍", "新竹市；自填仍須核對文件"),
+        ("出生日期", f"{params.birth_date_from} 至 {params.birth_date_until}（含首尾）"),
+        ("購買日期", f"{params.purchase_date_from} 至 {params.purchase_date_until}（含首尾）"),
     ]
     if params.acceptance_date_from and params.acceptance_date_until:
-        lines.append(f"公告受理期間：{params.acceptance_date_from} 至 {params.acceptance_date_until}；"
-                     "即時經費未知，不保留期限或額度。")
+        rows.append(("受理期間", f"{params.acceptance_date_from} 至 {params.acceptance_date_until}；"
+                                 "即時經費未知，不保留期限或額度"))
     channel_labels = {"official": "官方網站", "marketplace": "集合平台", "agent": "代購",
                       "app_store": "App 商店", "other": "其他通路", "unsure": "不明通路"}
     if params.restricted_channels:
-        lines.append("規則列出的通路限制：" + "、".join(channel_labels[value] for value in params.restricted_channels) + "。")
+        rows.append(("通路限制", "、".join(channel_labels[value] for value in params.restricted_channels)))
     if params.restrict_standalone_credits:
-        lines.append("單獨儲值／額度受限制；訂閱內含額度須分開判斷。")
-    lines.extend(["工具列名不保證所有方案或交易適用；未知方案、通路及公告歧義須確認。", _source(bundle, now)])
+        rows.append(("額度", "單獨儲值／額度受限制；訂閱內含額度須分開判斷"))
+    notes = ["工具列名不保證所有方案或交易適用；未知方案、通路及公告歧義須確認。"]
     buttons = [{"type": "message", "label": "開始預檢", "text": "預檢"},
                {"type": "message", "label": "返回選單", "text": "選單"}]
     if _safe_url(bundle.rules.source.url):
         buttons.insert(0, {"type": "uri", "label": "查看官方公告" if bundle.rules.source.kind == "official" else "查看規則來源",
                            "uri": bundle.rules.source.url})
-    return [_flex(title, "\n".join(lines), buttons=buttons)]
+    return [_detail_flex(title, "以下為規則資料摘要，不是個人適用判定，也不代表正式送件或核定。",
+                         rows, notes, _source_parts(bundle, now), buttons=buttons,
+                         alt=f"{title}｜規則版本 {bundle.rules.version}")]
 
 
 def _step(session, actor, bundle, secret, public_url=None):

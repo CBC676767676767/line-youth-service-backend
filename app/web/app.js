@@ -216,9 +216,24 @@
       const { data } = await api("/precheck/catalog");
       state.catalog = data;
       const banner = $("catalog-banner");
-      banner.replaceChildren(node("strong", modeText(data)), node("span", data.demo ? "以下工具、方案與條件皆為合成示範，不能用於真實申請判斷。" : "已核對公開來源與機關確認系統規格是不同狀態。僅依網頁文字提示；尚未閱讀全部附件或查證個人資格。"));
-      if (data.snapshot) banner.append(node("p", "來源快照 " + data.snapshot.snapshot_version + " · 查核日期 " + data.snapshot.source_checked_date + " · " + (data.snapshot.timezone || "Asia/Taipei"), "snapshot-metadata"));
-      banner.hidden = false;
+      // Synthetic rules still warn loudly: mistaking demo output for real rules
+      // is the one error this banner actually prevents. Public-source provenance
+      // is a standing fact about the page, so it belongs in the footer, not in a
+      // notice repeated above every step.
+      if (data.demo) {
+        banner.replaceChildren(node("strong", modeText(data)),
+          node("span", "以下工具、方案與條件皆為合成示範，不能用於真實申請判斷。"));
+        banner.hidden = false;
+      } else {
+        banner.replaceChildren();
+        banner.hidden = true;
+      }
+      const provenance = $("footer-provenance");
+      if (provenance) {
+        provenance.textContent = data.snapshot
+          ? "規則來源 " + data.snapshot.snapshot_version + " · 查核 " + data.snapshot.source_checked_date
+          : "";
+      }
       $("fill-demo").hidden = !(data.tools || []).length;
       renderTools();
       renderPlans();
@@ -463,10 +478,13 @@
     [["required_total", "必要檢查"], ["completed", "已完成檢查"], ["incomplete", "尚未完成"], ["issues", "需處理／確認"]].forEach(([key, label]) => {
       const item = node("div"); item.append(node("span", result.summary?.[key] ?? "—", "metric-value"), node("span", label, "metric-label")); metrics.append(item);
     });
-    target.append(metrics, node("p", "規則：" + result.rules_version + " · 目錄：" + result.catalog_version + " · 輸入版本：" + result.input_version + "\n執行時間：" + prettyDate(result.executed_at), "result-meta"));
-    if (result.snapshot) {
-      target.append(node("p", "公開來源快照：" + result.snapshot.snapshot_version + " · 來源查核日期：" + result.snapshot.source_checked_date + " · 使用範圍：申請前提示 · 機關已確認系統規格：否 · 自動核定：關閉", "result-meta"));
-    }
+    // One compact provenance line. The version is what lets an applicant prove
+    // later which rule set decided their case, so it stays; the prose around it
+    // was repeating what the result message already says.
+    const meta = ["規則 " + result.rules_version, "目錄 " + result.catalog_version,
+                  prettyDate(result.executed_at)];
+    if (result.snapshot) meta.push("來源查核 " + result.snapshot.source_checked_date);
+    target.append(metrics, node("p", meta.join(" · "), "result-meta"));
     if (result.estimate) {
       const estimate = node("section", null, "estimate-section"); estimate.append(node("h3", "依填答試算"));
       if (result.estimate.available) estimate.append(node("p", "TWD " + result.estimate.estimated_subsidy_twd, "estimate-amount"));

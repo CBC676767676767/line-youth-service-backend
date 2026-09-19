@@ -66,10 +66,20 @@ class Settings(BaseSettings):
     auto_create_schema: bool = False
     precheck_rules_path: Path | None = Path(__file__).parent / "data" / "precheck-hsinchu-115.json"
     precheck_demo_enabled: bool = True
+    demo_fixed_otp: str = ""
     precheck_official_application_url: str = ""
 
     @model_validator(mode="after")
     def validate_environment(self):
+        if self.demo_fixed_otp:
+            # A predictable one-time code is a demo convenience and an authentication
+            # bypass. It must never be reachable from a production configuration.
+            if self.app_env != "development":
+                raise ValueError("demo_fixed_otp is only allowed when app_env is development")
+            if self.mail_backend != "spool":
+                raise ValueError("demo_fixed_otp requires the spool mail backend")
+            if not (len(self.demo_fixed_otp) == 6 and self.demo_fixed_otp.isdigit()):
+                raise ValueError("demo_fixed_otp must be exactly six digits")
         if self.line_bot_enabled and self.line_reply_mode == "live":
             credentials = (self.line_channel_access_token, self.line_channel_secret,
                            self.line_messaging_channel_id, self.line_destination_user_id)
