@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException
 from app.common import ApiError, meta, new_id, ok
 from app.config import Settings
 from app.db import Base, make_engine, make_session_factory
+from app.web import register_web
 
 
 class RequestSizeLimit:
@@ -141,6 +142,7 @@ def create_app(settings: Settings | None = None, session_factory=None):
 
     for router in [auth.router, cases.router, files.router, notifications.router, admin.router]:
         application.include_router(router, prefix="/api/v1")
+    register_web(application, settings)
     return application
 
 

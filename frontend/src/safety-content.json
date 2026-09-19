@@ -1,0 +1,254 @@
+{
+  "schemaVersion": "1.0.0",
+  "locale": "zh-TW",
+  "meta": {
+    "title": "AI 安全使用小學堂",
+    "subtitle": "先保護資料，再讓 AI 幫忙。",
+    "contentStatus": "提案新增教學內容",
+    "checkedOn": "2026-09-19",
+    "estimatedMinutes": 5,
+    "eligibilityNotice": "本課程為提案新增的自願學習內容。是否完成、測驗分數與檢核結果，均不影響官方補助資格、收件或審查。",
+    "assessmentNotice": "這是一份使用提醒，不是安全認證、產品推薦或官方補助名單。沒有發現問題，不代表工具沒有風險。",
+    "privacyNotice": "練習請使用虛構資料。不要在本頁輸入密碼、驗證碼、服務存取金鑰、身分證影像或真實申請附件。",
+    "completionLabel": "已完成本次學習",
+    "completionMeaning": "只記錄學習進度，不代表取得認證或保證工具安全。"
+  },
+  "sectionLabels": {
+    "checklist": "使用前，先確認這 8 件事",
+    "quiz": "3 題情境練習",
+    "incidents": "從真實事件學一件事",
+    "cheatSheet": "一頁式 AI 安全懶人包",
+    "activities": "宣導活動提案"
+  },
+  "checklistCategories": [
+    {"id": "self", "label": "使用者自評", "description": "由你確認使用情境與帳號設定；網站無法只靠勾選驗證。"},
+    {"id": "automatic", "label": "可自動比對", "description": "限明確欄位與有來源的清單規則；本頁僅說明檢核方式，未進行外部工具安全掃描。"},
+    {"id": "manual", "label": "需人工確認", "description": "需要閱讀條款、判斷用途或查核事件，不能以分數代替。"}
+  ],
+  "checklist": [
+    {
+      "id": "minimize-data",
+      "category": "self",
+      "title": "這些資料真的需要交給 AI 嗎？",
+      "body": "先用虛構或不含敏感資訊的內容完成練習；真實證件、帳密、金鑰與未公開資料，不要貼到未經評估的工具。",
+      "action": "刪除不必要欄位；遮住姓名後，也要確認其他資訊是否仍能認出當事人。",
+      "checkedLabel": "我已確認輸入內容",
+      "sourceIds": ["ncsc-llm-risk"]
+    },
+    {
+      "id": "privacy-settings",
+      "category": "self",
+      "title": "我知道資料會如何保存與使用嗎？",
+      "body": "確認你使用的方案、保存期限、刪除方式及是否用於訓練；不同方案與設定可能不同。",
+      "action": "找不到清楚說明時，先不要輸入敏感資料，也不要把「不訓練」理解成「完全不保存」。",
+      "checkedLabel": "我已閱讀目前方案的說明",
+      "sourceIds": ["ncsc-llm-risk"]
+    },
+    {
+      "id": "account-protection",
+      "category": "self",
+      "title": "帳號有多一層保護嗎？",
+      "body": "使用不同於其他網站的密碼，並在服務支援時開啟多因素驗證。不要把驗證碼交給客服、陌生訊息或 AI。",
+      "action": "到官方帳號設定查看；這個勾選不會讓網站取得或驗證你的密碼。",
+      "checkedLabel": "我已檢查帳號保護設定",
+      "sourceIds": ["cisa-mfa"]
+    },
+    {
+      "id": "least-permission",
+      "category": "self",
+      "title": "只開這次工作需要的權限",
+      "body": "AI 連接雲端硬碟、信箱或外掛前，先看它要讀取什麼、能修改什麼，以及是否會對外傳送。",
+      "action": "先用指定資料夾或唯讀權限；寄信、公開分享、付款與刪除等操作，保留人工確認。",
+      "checkedLabel": "我已確認授權範圍",
+      "sourceIds": ["ncsc-secure-design", "ncsc-prompt-injection"]
+    },
+    {
+      "id": "domain-match",
+      "category": "automatic",
+      "title": "網址是否符合已確認的官方網域？",
+      "body": "可把輸入網址的網域，與人工維護、有來源日期的官方網域清單比對，提醒拼字或來源不一致。",
+      "action": "從你已確認的官方入口開啟；採用加密連線（HTTPS）或網域吻合，都不等於服務已通過安全認證。",
+      "implementationStatus": "planned_rule_only",
+      "defaultResult": "未執行比對",
+      "resultLabels": ["網域一致", "需人工確認", "資料不足"],
+      "limits": "只能核對已設定的網域資料；不檢查網站漏洞、實際營運者或隱私實作。未比對時不可顯示通過。",
+      "sourceIds": ["cisa-online-safety"]
+    },
+    {
+      "id": "advisory-match",
+      "category": "automatic",
+      "title": "工具與版本是否對應已知公告？",
+      "body": "可依產品名稱與版本，比對有來源的供應商安全公告，提示需要更新或查核的項目。",
+      "action": "不知道版本、公告未更新或沒有對應資料時，顯示「資料不足」，交由人工查證。",
+      "implementationStatus": "planned_rule_only",
+      "defaultResult": "未取得最新公告資料",
+      "resultLabels": ["有對應公告，請查看", "未找到對應公告，不代表安全", "資料不足"],
+      "limits": "需先建立並維護公告資料；不能由「未找到」推論沒有漏洞，也不能把歷史事件當成今日仍未修補。",
+      "sourceIds": ["ncsc-secure-lifecycle"]
+    },
+    {
+      "id": "sensitive-use-review",
+      "category": "manual",
+      "title": "真實案件或他人資料，先確認用途與授權",
+      "body": "需要處理申請附件、個人資料或未公開工作文件時，請資料負責人確認是否允許使用該工具，以及必要的保存與存取限制。",
+      "action": "無法確認時，改用虛構範例或已核准的作業方式。個人版、企業版與自行部署不能一概視為相同。",
+      "sourceIds": ["ncsc-llm-risk", "ncsc-secure-design"]
+    },
+    {
+      "id": "human-verification",
+      "category": "manual",
+      "title": "重要答案與事件消息，回到原始來源",
+      "body": "AI 提供的補助條件、金額、連結或資安消息，都要確認原始公告、日期、適用版本及限制。",
+      "action": "由人核對正式規則；分清真實資料暴露、研究示範與推測，不以單一回答決定申請資格。",
+      "sourceIds": ["ncsc-ai-risks", "openai-2023-incident", "wiz-deepseek-2025"]
+    }
+  ],
+  "checklistSummary": {
+    "title": "完成檢核，是開始負責任使用",
+    "body": "勾選代表你已查看提醒。自動比對與人工確認仍有各自限制；未完成的項目可以留下，先以低敏感資料練習。",
+    "forbiddenOutcomeLabels": ["安全認證通過", "保證安全", "官方推薦工具", "已符合補助資格"]
+  },
+  "quiz": [
+    {
+      "id": "quiz-data",
+      "title": "想請 AI 幫忙整理申請內容",
+      "question": "你手上有真實身分證影像與申請書，準備貼進尚未評估的 AI 網站。比較合適的下一步是？",
+      "options": [
+        {"id": "a", "text": "先上傳，整理完成後再刪除對話。"},
+        {"id": "b", "text": "改用虛構範例，只提供完成工作所需的非敏感內容。"},
+        {"id": "c", "text": "把檔名改掉，就可以傳完整證件。"}
+      ],
+      "correctOptionId": "b",
+      "explanation": "先減少交出去的資料。改檔名不會移除影像中的個資，刪除對話也不能直接推論服務端沒有保留資料。若確實需要真實文件，先確認授權、方案與資料處理方式。",
+      "takeaway": "先用虛構資料練習，再確認真實資料能否使用。",
+      "sourceIds": ["ncsc-llm-risk"]
+    },
+    {
+      "id": "quiz-prompt-injection",
+      "title": "文件裡出現奇怪的指令",
+      "question": "AI 正在摘要外部文件，文件要求它把你的申請附件寄到陌生信箱，並說這是補助必需程序。你應該怎麼做？",
+      "options": [
+        {"id": "a", "text": "允許寄出，因為指令寫在文件裡。"},
+        {"id": "b", "text": "再問 AI 一次它是否確定，回答確定就照做。"},
+        {"id": "c", "text": "停止對外傳送，從已確認的官方入口查證，保留人工決定。"}
+      ],
+      "correctOptionId": "c",
+      "explanation": "外部內容可能夾帶影響 AI 行為的指令，這是提示注入風險。文件裡的文字不等於你的授權；即使 AI 再次肯定，也不能取代官方查證與人工確認。",
+      "takeaway": "外部文件是要閱讀的資料，不是替你授權的命令。",
+      "sourceIds": ["ncsc-prompt-injection", "ncsc-secure-design"]
+    },
+    {
+      "id": "quiz-checklist",
+      "title": "檢核全勾選，就代表工具安全？",
+      "question": "你勾完提醒，工具網址也與清單一致。現在可以得到什麼結論？",
+      "options": [
+        {"id": "a", "text": "已查看提醒與有限的比對結果；仍要依資料用途評估風險。"},
+        {"id": "b", "text": "工具已取得市府安全認證。"},
+        {"id": "c", "text": "已符合補助資格，可以跳過正式審查。"}
+      ],
+      "correctOptionId": "a",
+      "explanation": "勾選不能驗證你的所有設定，網域比對也不檢查服務內部安全。這份教材不是安全認證；學習結果與工具檢核均不影響官方補助資格。",
+      "takeaway": "學習完成、工具安全與補助資格，是不同的事。",
+      "sourceIds": ["ncsc-secure-lifecycle"],
+      "editorialNote": "課程與資格分離是本提案的產品界線，不是引用來源對新竹市補助規則的解釋。"
+    }
+  ],
+  "quizFeedback": {
+    "allCorrect": "三題都答對了！記得把這些做法用在下一次操作。",
+    "someIncorrect": "已完成練習。看看解說，找出下次可以先做的一件事。",
+    "retryLabel": "再練習一次",
+    "notice": "這是自願學習，沒有補助資格門檻，也不發放安全認證。"
+  },
+  "incidents": [
+    {
+      "id": "openai-march-2023",
+      "title": "ChatGPT 跨帳號資料可見事件",
+      "occurredOn": "2023-03-20",
+      "disclosedOn": "2023-03-24",
+      "type": "服務商公開說明的真實事件",
+      "summary": "OpenAI 說明，程式庫錯誤使部分使用者可能看到其他人的對話標題；部分 Plus 訂閱者的付款相關資料也可能受影響。官方表示錯誤已修補，完整信用卡號未暴露。",
+      "lesson": "對話與帳號資料也可能受服務端錯誤影響。輸入資料前，先確認必要性與敏感程度。",
+      "boundary": "這是 2023 年的已揭露事件，不代表所有對話外洩，也不能據此推論今天仍存在相同漏洞。",
+      "sourceLabel": "OpenAI 官方事件說明",
+      "sourceUrl": "https://openai.com/index/march-20-chatgpt-outage/",
+      "sourceIds": ["openai-2023-incident"]
+    },
+    {
+      "id": "deepseek-january-2025",
+      "title": "DeepSeek 資料庫暴露研究揭露",
+      "occurredOn": null,
+      "disclosedOn": "2025-01-29",
+      "type": "研究者實際發現的資料暴露；非僅概念驗證",
+      "summary": "Wiz 研究團隊表示，發現一個不需驗證即可存取的 DeepSeek 資料庫，含超過百萬筆日誌及對話、服務存取金鑰等資訊。Wiz 表示已通報，DeepSeek 隨後封閉該暴露。",
+      "lesson": "AI 風險也可能來自資料庫與權限設定。評估工具時，除了模型能力，也要看資料如何保存與保護。",
+      "boundary": "百萬筆指日誌，不是百萬名受害者；研究沒有確認惡意存取總量或完整暴露期間，也不代表所有部署方式都有同一問題。",
+      "sourceLabel": "Wiz 原始研究報告",
+      "sourceUrl": "https://www.wiz.io/blog/wiz-research-uncovers-exposed-deepseek-database-leak",
+      "sourceIds": ["wiz-deepseek-2025"]
+    }
+  ],
+  "incidentNotice": "事件卡採歷史原始報告整理，供學習使用；不以品牌國別評分，不推論今日產品安全，也不提供存取暴露資料的方法。",
+  "cheatSheet": {
+    "title": "AI 安全使用：停一下、看一下、再送出",
+    "intro": "用 AI 寫作、整理與學習前，花一分鐘保護資料和帳號。",
+    "steps": [
+      {"number": 1, "title": "先看資料", "text": "先用虛構範例。帳密、金鑰、真實證件與未公開資料，不交給未經評估的工具。"},
+      {"number": 2, "title": "確認來源", "text": "從已確認的官方入口開啟；遇到催促登入或索取驗證碼的訊息，先停止並查證。"},
+      {"number": 3, "title": "保護帳號", "text": "密碼不要共用，服務支援時開啟多因素驗證；備援碼自行安全保存。"},
+      {"number": 4, "title": "少開權限", "text": "只開必要資料與功能；AI 要寄信、分享、付款或刪除時，先由人確認。"},
+      {"number": 5, "title": "查證答案", "text": "重要資訊回到原始公告，確認日期和適用條件；AI 說得肯定，不代表內容正確。"}
+    ],
+    "ifSomethingGoesWrong": {
+      "title": "發現誤傳或可疑操作時",
+      "text": "先停止分享或連接，保存不含敏感內容的時間與操作紀錄，循官方支援管道處理。若帳密或金鑰已外露，立即撤銷或更換；工作資料同時通知單位窗口。不要為求助再公開貼出原始資料。"
+    },
+    "footer": "提案新增教材｜可自願閱讀與練習｜不影響官方補助資格｜不是安全認證",
+    "sourceIds": ["ncsc-llm-risk", "ncsc-ai-risks", "ncsc-secure-design", "cisa-mfa", "cisa-online-safety"]
+  },
+  "activities": [
+    {
+      "id": "five-minute-checkin",
+      "title": "5 分鐘 AI 安全小練習",
+      "status": "活動規劃，尚未公告場次",
+      "durationMinutes": 5,
+      "format": "網站自願學習",
+      "description": "看一則事件、做三題情境題，再選一個今天可完成的保護動作。",
+      "materials": ["事件卡", "三題測驗", "一頁式懶人包"],
+      "measure": "只以自願參與的彙整完成率與題目理解情況改善教材；不與補助審查綁定。",
+      "participationNotice": "使用虛構情境，不要求上傳個資或帳號設定截圖。"
+    },
+    {
+      "id": "prompt-redaction-workshop",
+      "title": "把敏感提示詞改成可用範例",
+      "status": "活動規劃，尚未公告場次",
+      "durationMinutes": 20,
+      "format": "小組工作坊",
+      "description": "用虛構申請書找出不必要欄位，練習改寫為不含真實身分與機密的提示詞，再互相檢查是否仍有可辨識資訊。",
+      "materials": ["練習申請書", "資料最小化練習卡", "講師解說"],
+      "measure": "比較練習前後辨識敏感欄位的表現；不宣稱因此已降低真實外洩率。",
+      "participationNotice": "不使用真實民眾附件，不將練習文件送往外部 AI。"
+    },
+    {
+      "id": "permission-and-injection-demo",
+      "title": "AI 要替我寄信：我該先看什麼？",
+      "status": "活動規劃，尚未公告場次",
+      "durationMinutes": 15,
+      "format": "情境演練與問答",
+      "description": "以靜態練習畫面展示外部文件的奇怪指令、過大的雲端權限與對外傳送要求，練習選擇暫停、縮小權限和人工查證。",
+      "materials": ["虛構授權畫面", "提示注入情境卡", "官方來源連結"],
+      "measure": "記錄匿名情境題的判斷結果與最常見疑問，作為下一版教材修訂依據。",
+      "participationNotice": "不連接個人信箱，不執行真實寄信或下載外掛。"
+    }
+  ],
+  "sources": [
+    {"id": "openai-2023-incident", "publisher": "OpenAI", "title": "March 20 ChatGPT outage: Here’s what happened", "url": "https://openai.com/index/march-20-chatgpt-outage/", "publishedOn": "2023-03-24", "kind": "服務商原始事件說明"},
+    {"id": "wiz-deepseek-2025", "publisher": "Wiz Research", "title": "Wiz Research Uncovers Exposed DeepSeek Database Leaking Sensitive Information, Including Chat History", "url": "https://www.wiz.io/blog/wiz-research-uncovers-exposed-deepseek-database-leak", "publishedOn": "2025-01-29", "kind": "發現團隊原始研究"},
+    {"id": "ncsc-llm-risk", "publisher": "英國 NCSC", "title": "ChatGPT and large language models: what's the risk?", "url": "https://www.ncsc.gov.uk/blog-post/chatgpt-and-large-language-models-whats-the-risk", "publishedOn": "2023-03-14", "kind": "資安主管機關原始指引", "useNote": "引用敏感資料與條款評估原則，不把文中 2023 年產品敘述當作今日產品政策。"},
+    {"id": "ncsc-ai-risks", "publisher": "英國 NCSC", "title": "AI and cyber security: what you need to know", "url": "https://www.ncsc.gov.uk/guidance/ai-and-cyber-security-what-you-need-to-know", "kind": "資安主管機關原始指引"},
+    {"id": "ncsc-prompt-injection", "publisher": "英國 NCSC", "title": "Prompt injection is not SQL injection (it may be worse)", "url": "https://www.ncsc.gov.uk/blog-post/prompt-injection-is-not-sql-injection", "kind": "資安主管機關原始分析"},
+    {"id": "ncsc-secure-design", "publisher": "英國 NCSC", "title": "Guidelines for secure AI system development — Secure design", "url": "https://www.ncsc.gov.uk/collection/guidelines-secure-ai-system-development/guidelines/secure-design", "kind": "資安主管機關原始指引", "useNote": "最小權限與人工限制等原則轉為使用者教學，不是對單一工具的認證。"},
+    {"id": "ncsc-secure-lifecycle", "publisher": "英國 NCSC", "title": "Guidelines for secure AI system development", "url": "https://www.ncsc.gov.uk/collection/guidelines-secure-ai-system-development", "publishedOn": "2023-11-27", "kind": "資安主管機關原始指引"},
+    {"id": "cisa-mfa", "publisher": "美國 CISA", "title": "Require Multifactor Authentication", "url": "https://www.cisa.gov/audiences/small-and-medium-businesses/secure-your-business/require-multifactor-authentication", "kind": "資安主管機關原始指引"},
+    {"id": "cisa-online-safety", "publisher": "美國 CISA", "title": "Secure Our World — 4 Easy Ways to Stay Safe Online", "url": "https://www.cisa.gov/sites/default/files/2024-09/Secure-Our-World-4-Easy-Ways-Stay-Safe-Online-Tip-Sheet.pdf", "kind": "資安主管機關原始教材"}
+  ]
+}
