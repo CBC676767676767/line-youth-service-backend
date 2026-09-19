@@ -30,6 +30,7 @@ class Restriction:
     clause_text: str
     note: str
     distinctive: bool
+    aliases: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ def load_catalog(path: str | None = None) -> Catalog:
             id=item["id"], name=item["name"], kind=item["kind"],
             clause_id=clause["id"], clause_text=clause["text"],
             note=item.get("note", ""), distinctive=bool(item.get("distinctive")),
+            aliases=tuple(item.get("aliases", [])),
         ))
         for alias in [item["name"], *item.get("aliases", [])]:
             patterns.append((item["id"], _pattern(alias)))
@@ -128,7 +130,10 @@ def public_catalog(catalog: Catalog | None = None) -> dict:
         "source": {"title": catalog.source_title, "url": catalog.source_url,
                    "checked_date": catalog.checked_date},
         "notice": catalog.notice,
+        # The aliases are public product names from the notice. Sending them keeps
+        # the browser's reading identical to the server's instead of guessing.
         "entries": [{"id": entry.id, "name": entry.name, "kind": entry.kind,
-                     "clause": entry.clause_text, "distinctive": entry.distinctive}
+                     "clause": entry.clause_text, "distinctive": entry.distinctive,
+                     "aliases": list(entry.aliases)}
                     for entry in catalog.entries],
     }

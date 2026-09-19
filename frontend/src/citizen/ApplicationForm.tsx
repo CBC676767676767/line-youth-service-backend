@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  loadRestricted,
+  matchDeclared,
+  scanText,
+  type RestrictedCatalog,
+  type RestrictedEntry,
+} from "../restricted";
+import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -125,6 +132,8 @@ export default function ApplicationForm({
   onSafety: () => void;
   onUnsavedChange: (value: boolean) => void;
 }) {
+  const [restricted, setRestricted] = useState<RestrictedCatalog | null>(null);
+  const [receiptFinding, setReceiptFinding] = useState<RestrictedEntry | null>(null);
   const [record, setRecord] = useState<CaseData | null>(null);
   const [form, setForm] = useState<Form>(() =>
     emptyForm(me.account.email || ""),
@@ -133,6 +142,17 @@ export default function ApplicationForm({
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let live = true;
+    void loadRestricted().then((value) => {
+      if (live) setRestricted(value);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [showIdentity, setShowIdentity] = useState(false);
@@ -370,6 +390,11 @@ export default function ApplicationForm({
   }));
   const findings = checks(form, docs);
   const missing = docs.filter((d) => !d.file);
+  // A tool the applicant declared outranks a reading from a receipt: they chose
+  // that word, while an OCR reading can be wrong. Either way the server refuses
+  // the submission; blocking here only spares a wasted upload.
+  const declaredExcluded = matchDeclared(form.tool || "", restricted);
+  const excluded = declaredExcluded || receiptFinding;
   const estimatedAmount = estimate(form);
   if (loading) return <p role="status">正在讀取申請資料…</p>;
   if (!record)
@@ -677,7 +702,13 @@ export default function ApplicationForm({
                 onConfirm={confirmIdentity}
               />
             )}
-            {showReceipt && <OcrLab />}
+            {showReceipt && (
+              <OcrLab
+                onScanned={(text) =>
+                  setReceiptFinding(scanText(text, restricted)[0] || null)
+                }
+              />
+            )}
             {form.identityHint && (
               <p className="notice">
                 <CheckCircle2 size={17} /> 證件欄位已核對並帶入，字號：
@@ -834,6 +865,29 @@ export default function ApplicationForm({
                 尚缺：{missing.map((d) => d.title).join("、")}。
               </p>
             )}
+            {excluded && restricted && (
+              <div className="notice warning" role="alert">
+                <b>
+                  「{excluded.name}」屬於公告排除的項目，無法送出這份申請。
+                </b>
+                <p>{excluded.clause}</p>
+                <p className="small">
+                  {declaredExcluded
+                    ? "這是你填寫的工具名稱。"
+                    : "這是從你上傳的收據文字辨識到的名稱；辨識可能出錯，若與事實不符請洽承辦確認。"}
+                  依據：
+                  <a
+                    href={restricted.source.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {restricted.source.title}
+                  </a>
+                  （查核日期 {restricted.source.checked_date}）。
+                  本系統只比對公告具名的項目，不自行認定廠商國別或資本來源。
+                </p>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -870,7 +924,9 @@ export default function ApplicationForm({
           ) : (
             <button
               className="btn primary"
-              disabled={busy || !confirmed || missing.length > 0}
+              disabled={
+                busy || !confirmed || missing.length > 0 || excluded !== null
+              }
               onClick={() =>
                 act(async () => {
                   if (!pendingSubmit.current) {
