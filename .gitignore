@@ -26,3 +26,6 @@ playwright-report/
 test-results/
 # Per-developer tooling state; it conflicts between teammates and is not source.
 .omx/
+
+# Locally rendered previews from scripts/demo_documents.py
+demo-documents/

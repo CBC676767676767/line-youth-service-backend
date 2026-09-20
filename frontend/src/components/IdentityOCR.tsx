@@ -4,6 +4,7 @@ import {
   checkIdentity, createIdentityPracticeImage, emptyIdentityFields, normalizeTaiwanId,
   parseBackOCR, parseBirthDate, parseFrontOCR, rotateIdentityImage,
   type IdentityApplicant, type IdentityFields, type IdentityResult, type IdentitySide,
+  type PracticeCondition,
 } from '../identity';
 import '../identity.css';
 
@@ -69,11 +70,11 @@ export default function IdentityOCR({ applicant, disabled = false, onConfirm }: 
     if (cause instanceof Error && cause.name === 'AbortError') setError('已取消辨識，您可以重新開始。');
     else setError(cause instanceof Error ? cause.message : '圖片處理未完成，請重新選擇或再試一次。');
   }
-  async function loadImage(side: SideKey, file?: File, practice = false) {
+  async function loadImage(side: SideKey, file?: File, practice?: PracticeCondition) {
     if (!file && !practice) return;
     const token = begin(side, '讀取圖片'); if (token === null) return;
     try {
-      const source = file ?? await createIdentityPracticeImage(side);
+      const source = file ?? await createIdentityPracticeImage(side, practice);
       const prepared = await prepareImage(source);
       if (token !== operation.current || disabledRef.current) return;
       setSides(previous => ({ ...previous, [side]: { fileName: source.name, previewUrl: prepared.previewUrl, text: '', recognized: false, hints: prepared.hints, notes: [] } }));
@@ -145,7 +146,10 @@ export default function IdentityOCR({ applicant, disabled = false, onConfirm }: 
             <label className={`identity-file-button ${immutable ? 'is-disabled' : ''}`}>選擇{label}圖片<input type="file" accept="image/png,image/jpeg,image/webp" aria-label={`選擇${label}圖片`} disabled={immutable} onChange={event => { void loadImage(side, event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} /></label>
             <label className={`identity-file-button ${immutable ? 'is-disabled' : ''}`}>拍攝{label}<input type="file" accept="image/*" capture="environment" aria-label={`拍攝${label}`} disabled={immutable} onChange={event => { void loadImage(side, event.currentTarget.files?.[0]); event.currentTarget.value = ''; }} /></label>
           </div>
-          <button type="button" className="identity-text-button" disabled={immutable} onClick={() => void loadImage(side, undefined, true)}>載入{label}練習資料</button>
+          <div className="identity-file-actions">
+            <button type="button" className="identity-text-button" disabled={immutable} onClick={() => void loadImage(side, undefined, 'clean')}>載入{label}練習證件</button>
+            <button type="button" className="identity-text-button" disabled={immutable} onClick={() => void loadImage(side, undefined, 'damaged')}>載入汙損的{label}</button>
+          </div>
           {item.previewUrl ? <>
             <a className="identity-preview" href={item.previewUrl} target="_blank" rel="noreferrer" aria-label={`開啟${label}圖片查看細節`}><img src={item.previewUrl} alt={`${label}圖片：${item.fileName}`} /></a>
             <p className="identity-filename">{item.fileName} · 點圖片可放大查看</p>
@@ -155,7 +159,7 @@ export default function IdentityOCR({ applicant, disabled = false, onConfirm }: 
               <button type="button" className="identity-text-button" disabled={immutable} onClick={() => remove(side)}>移除{label}</button>
             </div>
             <details className="identity-detail"><summary>圖片品質提示（不代表證件有效性）</summary><ul>{item.hints.map(hint => <li key={hint.label}><strong>{hint.label}：{hint.value}</strong><br />{hint.message}</li>)}</ul></details>
-          </> : <div className="identity-placeholder">{label === '正面' ? '請選擇姓名、字號與出生日期所在的一面' : '請選擇戶籍地址所在的一面'}<small>練習資料是純文字圖片，非正式證件。</small></div>}
+          </> : <div className="identity-placeholder">{label === '正面' ? '請選擇姓名、字號與出生日期所在的一面' : '請選擇戶籍地址所在的一面'}<small>練習證件是本頁畫出來的圖，非正式證件。汙損版可看清楚讀不到時系統怎麼說。</small></div>}
           {busy?.side === side && <div className="identity-progress" role="status" aria-live="polite"><span>{progress?.stage || busy.label}</span>{progress && <progress max={1} value={progress.progress} />}<small>繁體中文可能辨識不完整，完成後請逐欄核對。</small>{abort.current && <button type="button" className="identity-text-button" onClick={() => abort.current?.abort()}>取消辨識</button>}</div>}
           {item.recognized && <>
             {item.notes.length > 0 && <ul className="identity-extraction-notes">{item.notes.map(note => <li key={note}>{note}</li>)}</ul>}

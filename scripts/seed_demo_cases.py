@@ -68,8 +68,9 @@ def expect(response: httpx.Response, *allowed: int) -> dict:
     return response.json().get("data", {})
 
 
-def upload(client: httpx.Client, case_id: str, document_type: str) -> tuple[str, str]:
-    content = placeholder_png(document_type)
+def upload(client: httpx.Client, case_id: str, document_type: str,
+           content: bytes | None = None) -> tuple[str, str]:
+    content = placeholder_png(document_type) if content is None else content
     intent = expect(client.post("/files/upload-intents", json={
         "case_id": case_id, "task_id": None, "document_type": document_type,
         "file_name": f"demo-{document_type.lower()}.png",

@@ -15,6 +15,7 @@ export type PreparedImage = {
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_PIXELS = 24_000_000;
 const MAX_OCR_EDGE = 2400;
+const MIN_OCR_EDGE = 1600;
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 /** No uploads or remote recognition. Only bundled same-origin OCR assets are fetched. */
@@ -130,6 +131,46 @@ function statusLabel(status: string): string {
   return known[status] ?? '正在準備文字辨識';
 }
 
+/**
+ * Enlarge a small image and drop its colour before recognition.
+ *
+ * A phone crop of an identity card is often around 300-500 px wide, which
+ * leaves a Chinese glyph roughly 12 px tall -- below what the engine resolves.
+ * Measured on the Ministry of the Interior specimen card: at its native 305 px
+ * the address label and both address lines came back as noise, and at 1600 px
+ * with the colour removed both were read. The colour matters because the card
+ * is printed on a pink guilloche with red rules that survive the engine's own
+ * thresholding and merge into the characters sitting on them.
+ *
+ * Images already at or above the threshold are returned untouched, so nothing
+ * that reads correctly today changes. Only the pixels handed to the engine are
+ * affected; the preview the applicant sees keeps its colour and its own size.
+ */
+async function enlargeForRecognition(source: string): Promise<string> {
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  const longest = Math.max(image.naturalWidth, image.naturalHeight);
+  if (!longest || longest >= MIN_OCR_EDGE) return source;
+  const scale = MIN_OCR_EDGE / longest;
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const { canvas, context } = canvas2d(width, height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, width, height);
+  const pixels = context.getImageData(0, 0, width, height);
+  const data = pixels.data;
+  for (let index = 0; index < data.length; index += 4) {
+    const grey = Math.round(0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2]);
+    data[index] = grey;
+    data[index + 1] = grey;
+    data[index + 2] = grey;
+  }
+  context.putImageData(pixels, 0, 0);
+  return canvas.toDataURL('image/png');
+}
+
 export async function recognizeLocally(
   image: string,
   language: OcrLanguage,
@@ -181,7 +222,10 @@ export async function recognizeLocally(
     worker = await Promise.race([creation, interrupted]);
     if (cancelled) throw new DOMException('辨識已取消', 'AbortError');
     await Promise.race([worker.setParameters({ tessedit_pageseg_mode: PSM.AUTO, preserve_interword_spaces: '1' }), interrupted]);
-    const result = await Promise.race([worker.recognize(image, {}, { text: true }), interrupted]);
+    // A failed enlargement must not lose the image; fall back to the original pixels.
+    const pixels = await Promise.race([enlargeForRecognition(image).catch(() => image), interrupted]);
+    if (cancelled) throw new DOMException('辨識已取消', 'AbortError');
+    const result = await Promise.race([worker.recognize(pixels, {}, { text: true }), interrupted]);
     onProgress({ stage: '辨識完成，請對照原圖確認', progress: 1 });
     return { text: result.data.text.trim(), confidence: result.data.confidence };
   } finally {
@@ -191,43 +235,96 @@ export async function recognizeLocally(
   }
 }
 
-/** Synthetic pixels, NOT a prefilled OCR result. The engine must read this canvas. */
+/**
+ * A practice subscription invoice, laid out the way the real vendor invoices the
+ * office actually receives are: header block, a billed-to block, a line-item
+ * table, then a totals column on the right.
+ *
+ * Synthetic pixels, NOT a prefilled OCR result -- the engine must read this
+ * canvas like any other image. Every name, address, mailbox and number below is
+ * invented; a real invoice carries the applicant's own address and mailbox and
+ * must never be built into the product.
+ */
 export async function createDemoReceipt(): Promise<File> {
-  const { canvas, context } = canvas2d(1200, 1520);
-  context.fillStyle = '#163e33';
-  context.fillRect(0, 0, 1200, 190);
-  context.fillStyle = '#fff';
-  context.font = 'bold 56px sans-serif';
-  context.fillText('PRACTICE RECEIPT', 90, 105);
-  context.font = '26px sans-serif';
-  context.fillText('練習收據・非正式憑證', 90, 154);
-  context.fillStyle = '#151515';
-  const lines = [
-    'Example Software Studio',
-    'Receipt No: PRACTICE-2026-0919',
-    'Date: 2026-09-19',
-    'Customer: Practice User',
-    'Email: practice@example.test',
-    '',
-    'Item: Creative Writing Software',
-    'Plan: Monthly subscription',
-    'Quantity: 1',
-    'Amount: TWD 650',
-    'Payment method: Practice card',
-    '',
-    'TOTAL: TWD 650',
+  const { canvas, context } = canvas2d(1240, 1750);
+  const text = (value: string, x: number, y: number, font: string, colour = '#111') => {
+    context.font = font;
+    context.fillStyle = colour;
+    context.fillText(value, x, y);
+  };
+  const right = (value: string, x: number, y: number, font: string, colour = '#111') => {
+    context.font = font;
+    context.fillStyle = colour;
+    context.fillText(value, x - context.measureText(value).width, y);
+  };
+  const rule = (y: number) => {
+    context.strokeStyle = '#d8d8d8';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(90, y);
+    context.lineTo(1150, y);
+    context.stroke();
+  };
+
+  text('Invoice', 90, 130, 'bold 62px sans-serif');
+  const head: Array<[string, string]> = [
+    ['Invoice number', 'PRACTICE-0000-0000'],
+    ['Date of issue', 'September 7, 2026'],
+    ['Date due', 'September 7, 2026'],
+    ['VAT Registration', 'Taiwan VAT: 00000000'],
   ];
-  lines.forEach((line, index) => {
-    context.font = line.startsWith('TOTAL') ? 'bold 48px sans-serif' : '34px sans-serif';
-    context.fillText(line, 90, 290 + index * 70);
+  head.forEach(([label, value], index) => {
+    text(label, 90, 210 + index * 44, 'bold 28px sans-serif', '#222');
+    text(value, 400, 210 + index * 44, '28px sans-serif');
   });
-  context.strokeStyle = '#c6d1ca';
-  context.beginPath(); context.moveTo(90, 1270); context.lineTo(1110, 1270); context.stroke();
-  context.font = '27px sans-serif';
-  context.fillText('For text recognition practice only.', 90, 1340);
-  context.fillText('Not an invoice. Not evidence of payment.', 90, 1390);
+
+  text('Practice Software, PBC', 90, 450, 'bold 28px sans-serif');
+  ['548 Practice Street', 'PMB 00000', 'Practice City, CA 00000', 'United States',
+    'support@example.test'].forEach((line, index) =>
+    text(line, 90, 496 + index * 40, '28px sans-serif', '#333'));
+
+  text('Bill to', 640, 450, 'bold 28px sans-serif');
+  ['練習使用者', '新竹市東區練習路100號', 'Taiwan', 'practice@example.test'].forEach(
+    (line, index) => text(line, 640, 496 + index * 40, '28px sans-serif', '#333'));
+
+  text('TWD 650.00 due September 7, 2026', 90, 790, 'bold 44px sans-serif');
+
+  rule(880);
+  text('Description', 90, 862, '26px sans-serif', '#555');
+  right('Qty', 800, 862, '26px sans-serif', '#555');
+  right('Unit price', 960, 862, '26px sans-serif', '#555');
+  right('Amount', 1150, 862, '26px sans-serif', '#555');
+
+  text('Practice AI Pro', 90, 936, '30px sans-serif');
+  text('Sep 7 - Oct 7, 2026', 90, 980, '28px sans-serif', '#444');
+  right('1', 800, 936, '30px sans-serif');
+  right('TWD 650.00', 960, 936, '30px sans-serif');
+  right('TWD 650.00', 1150, 936, '30px sans-serif');
+
+  const totals: Array<[string, string, boolean]> = [
+    ['Subtotal', 'TWD 650.00', false],
+    ['Total excluding tax', 'TWD 650.00', false],
+    ['Total', 'TWD 650.00', false],
+    ['Amount due', 'TWD 650.00', true],
+  ];
+  totals.forEach(([label, value, bold], index) => {
+    const y = 1100 + index * 56;
+    rule(y - 40);
+    text(label, 640, y, `${bold ? 'bold ' : ''}30px sans-serif`, '#333');
+    right(value, 1150, y, `${bold ? 'bold ' : ''}30px sans-serif`);
+  });
+  rule(1330);
+
+  text('Plan: Monthly subscription', 90, 1420, '30px sans-serif');
+  text('Payment method: Practice card', 90, 1470, '30px sans-serif');
+
+  rule(1560);
+  text('練習收據・非正式憑證', 90, 1630, 'bold 34px sans-serif', '#b03027');
+  text('For text recognition practice only. Not an invoice.', 90, 1684, '27px sans-serif', '#444');
+  text('不能作為付款、金額或申請資格的證明。', 90, 1726, '27px sans-serif', '#444');
+
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error('無法建立練習圖片。')), 'image/png');
   });
-  return new File([blob], 'practice-receipt.png', { type: 'image/png' });
+  return new File([blob], 'practice-invoice.png', { type: 'image/png' });
 }
